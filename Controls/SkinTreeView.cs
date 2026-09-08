@@ -768,13 +768,32 @@ namespace MCSkin3D
 			if (from is Skin)
 			{
 				string newPath = Path.GetFileNameWithoutExtension(((Skin)from).File.Name);
-				((Skin)from).MoveTo(path + newPath + ".png");
+				MoveSkin((Skin)from, to, Path.Combine(path, newPath + ".png"), true);
+				return;
 			}
 			else
 				((FolderNode)from).MoveTo(path + ((FolderNode)from).Directory.Name);
 
 			from.Remove();
 			to.Add(from);
+		}
+
+		internal void MoveSkin(Skin skin, TreeNodeCollection destination, string filePath, bool autoRename)
+		{
+			skin.MoveTo(filePath, autoRename);
+			BeginUpdate();
+			try
+			{
+				skin.Remove();
+				destination.Add(skin);
+				SelectedNode = skin;
+				skin.EnsureVisible();
+			}
+			finally
+			{
+				EndUpdate();
+				Invalidate();
+			}
 		}
 
 		private void MoveNode(TreeNode from, TreeNode to)

@@ -29,7 +29,14 @@ internal static class Program
     private static int Main(string[] args)
     {
         Directory.CreateDirectory(Scratch);
+        Application.SetUnhandledExceptionMode(UnhandledExceptionMode.ThrowException);
         Application.EnableVisualStyles();
+        if (Array.IndexOf(args, "--move-dialog") >= 0)
+        {
+            SkinMoveChecks.ShowInteractive(Scratch);
+            return 0;
+        }
+        using var watchdog = new System.Threading.Timer(_ => { Console.Error.WriteLine("Smoke checks stalled for 60 seconds."); Environment.Exit(124); }, null, 60000, Timeout.Infinite);
         Run("Square picker mouse positions, hue, alpha and capture", PickerMouse);
         Run("Square picker keyboard, bounds and change events", PickerKeyboard);
         Run("Square picker paints at normal and small sizes", PickerPaint);
@@ -39,6 +46,7 @@ internal static class Program
         Run("Model XML export/import and compressed TCN import", ModelRoundTrip);
         Run("Renderer geometry and reusable ghost color buffers", () => RendererChecks.Run(Check));
         Run("PNG pixels and skin metadata survive save/reload", PngRoundTrip);
+        Run("Skin moves preserve files, selection and library boundaries", () => SkinMoveChecks.Run(Check, Scratch));
         Run("Minecraft skin download resolves current endpoints and validates responses offline", () => SkinDownloadChecks.Run(Check));
         if (Array.IndexOf(args, "--startup") >= 0)
             Run("OpenTK context and legacy rendering before editor becomes visible", HiddenOpenGlStartup);

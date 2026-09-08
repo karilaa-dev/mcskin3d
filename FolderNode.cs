@@ -26,9 +26,16 @@ namespace MCSkin3D
 	[Serializable]
 	public class FolderNode : TreeNode
 	{
+		private readonly string _rootPath;
+
 		public FolderNode(string name)
 		{
 			Name = Text = name;
+		}
+
+		internal FolderNode(string name, string rootPath) : this(name)
+		{
+			_rootPath = Path.GetFullPath(rootPath);
 		}
 
 		string TransformedPath
@@ -37,6 +44,8 @@ namespace MCSkin3D
 			{
 				if (Parent == null)
 				{
+					if (_rootPath != null)
+						return _rootPath.TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
 					if (Editor.HasOneRoot)
 						return Editor.RootFolderString + Text + '\\';
 

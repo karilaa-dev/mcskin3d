@@ -330,11 +330,19 @@ namespace MCSkin3D
 
 		public void MoveTo(string newPath)
 		{
-			while (System.IO.File.Exists(newPath))
-				newPath = newPath.Insert(newPath.Length - 4, " - " + Editor.GetLanguageString("C_MOVED"));
+			MoveTo(newPath, true);
+		}
 
-			FileSystem.MoveFile(File.FullName, newPath);
-			//File.MoveTo(newPath);
+		internal void MoveTo(string newPath, bool autoRename)
+		{
+			if (string.Equals(Path.GetFullPath(newPath), File.FullName, StringComparison.OrdinalIgnoreCase))
+				return;
+			while (autoRename && (System.IO.File.Exists(newPath) || System.IO.Directory.Exists(newPath)))
+				newPath = newPath.Insert(newPath.Length - 4, " - " + Languages.LanguageLoader.GetStringWithFallback("C_MOVED"));
+
+			// Do not overwrite, create a missing destination, or change the node on failure.
+			System.IO.File.Move(File.FullName, newPath);
+			Name = Path.GetFileNameWithoutExtension(newPath);
 		}
 
 		public void CheckTransparentPart(ColorGrabber grabber, int index)

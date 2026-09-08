@@ -73,6 +73,7 @@ internal static class Program
                 Run("All tabs, square/wheel and English localization", TabsAndLanguage);
                 Run("Pencil through viewport, undo, redo, save and reload", EditSaveReload);
                 Run("Eraser, eyedropper and fill through viewport", MoreEditingTools);
+                Run("Move edited skin preserves undo, texture and save destination", MoveEditedSkin);
                 Run("Tool selection, camera and model visibility", ToolsAndModel);
                 Run("Loaded swatches, selection and persistence", Swatches);
                 Run("Clone and import PNG into skin tree", ImportClone);
@@ -276,6 +277,67 @@ internal static class Program
         var click = new MouseEventArgs(MouseButtons.Left, 1, strokeLocation.X, strokeLocation.Y, 0);
         Call(editor, "rendererControl_MouseDown", editor.Renderer, click);
         Call(editor, "rendererControl_MouseUp", editor.Renderer, click);
+    }
+
+    private static void MoveEditedSkin()
+    {
+        var skin = Field<Skin>(editor, "_lastSkin");
+        var tree = Field<SkinTreeView>(editor, "treeView1");
+        var oldRightClicked = Field<TreeNode>(editor, "_rightClickedNode");
+        var menu = Field<ToolStripMenuItem>(editor, "moveToToolStripMenuItem");
+        SetField(editor, "_rightClickedNode", null);
+        Call(editor, "contextMenuStrip1_Opening", null, new System.ComponentModel.CancelEventArgs());
+        Check(!menu.Enabled, "Move is disabled on empty space");
+        SetField(editor, "_rightClickedNode", skin.Parent ?? new FolderNode("folder"));
+        Call(editor, "contextMenuStrip1_Opening", null, new System.ComponentModel.CancelEventArgs());
+        Check(!menu.Enabled, "Move is disabled on folders");
+        SetField(editor, "_rightClickedNode", skin);
+        Call(editor, "contextMenuStrip1_Opening", null, new System.ComponentModel.CancelEventArgs());
+        Check(menu.Enabled && menu.Text == "Move to...", "Skin context menu exposes localized move command");
+
+        bool opened = false;
+        using (var closeDialog = new System.Windows.Forms.Timer { Interval = 100 })
+        {
+            closeDialog.Tick += (_, _) =>
+            {
+                var dialog = Application.OpenForms.Cast<Form>().FirstOrDefault(f => f.Name == "moveSkinDialog");
+                if (dialog == null) return;
+                opened = true;
+                closeDialog.Stop();
+                ((Button)dialog.Controls.Find("cancelButton", true).Single()).PerformClick();
+            };
+            closeDialog.Start();
+            menu.PerformClick();
+        }
+        Check(opened && tree.SelectedNode == skin, "Context command opens cancellable browser without changing skin");
+
+        int original = ReadPixel(skin, strokePixel);
+        editor.ColorPanel.SelectedColor = ColorManager.FromRGBA(82, 141, 239, 255);
+        StrokeWith<PencilTool>();
+        int edited = ReadPixel(skin, strokePixel);
+        Check(edited != original && skin.Dirty && skin.Undo.CanUndo, "Skin has unsaved paint before move");
+        var undo = skin.Undo;
+        var texture = skin.GLImage;
+        string source = skin.File.FullName;
+        byte[] diskBefore = File.ReadAllBytes(source);
+        var session = new MCSkin3D.Services.SkinMoveSession(tree, skin);
+        string destination = session.CreateFolder(session.RootPath, "Moved by integration");
+        session.Move(destination, "Renamed edited skin");
+        Check(!File.Exists(source) && skin.File.Exists && File.ReadAllBytes(skin.File.FullName).SequenceEqual(diskBefore), "Move preserves saved bytes until user saves");
+        Check(tree.SelectedNode == skin && Field<Skin>(editor, "_lastSkin") == skin && skin.Dirty && ReferenceEquals(skin.Undo, undo) && ReferenceEquals(skin.GLImage, texture), "Move retains selection, dirty state, undo and loaded texture");
+        Check(ReadPixel(skin, strokePixel) == edited, "Unsaved GPU pixels survive move");
+        Call(editor, "PerformUndo");
+        Check(ReadPixel(skin, strokePixel) == original && skin.Undo.CanRedo, "Undo still restores pixel after move");
+        Call(editor, "PerformRedo");
+        Check(ReadPixel(skin, strokePixel) == edited, "Redo still restores edited pixel after move");
+        Call(editor, "PerformSave");
+        Check(!skin.Dirty && !File.Exists(source), "Save writes only the new location");
+        using (var png = new Bitmap(skin.File.FullName))
+            Check(png.GetPixel(strokePixel.X, strokePixel.Y).ToArgb() == Color.FromArgb(255, 82, 141, 239).ToArgb(), "Moved PNG contains exact edited pixel after save");
+        tree.SelectedNode = Nodes(tree.Nodes).OfType<Skin>().First(s => s != skin);
+        tree.SelectedNode = skin;
+        Check(ReadPixel(skin, strokePixel) == edited, "Moved skin reloads from new filename");
+        SetField(editor, "_rightClickedNode", oldRightClicked);
     }
 
     private static void ToolsAndModel()

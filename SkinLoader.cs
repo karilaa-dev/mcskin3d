@@ -52,7 +52,7 @@ namespace MCSkin3D
 				foreach (string x in GlobalSettings.SkinDirectories)
 				{
 					var expanded = MacroHandler.ReplaceMacros(x);
-					var folder = new FolderNode(new DirectoryInfo(expanded).Name);
+					var folder = new FolderNode(new DirectoryInfo(expanded).Name, expanded);
 					RecurseAddDirectories(expanded, folder.Nodes, skins);
 					rootNodes.Add(folder);
 				}

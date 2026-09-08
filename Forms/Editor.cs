@@ -107,6 +107,7 @@ namespace MCSkin3D
 		private bool _opening = true;
 		private Point _pickPosition = new Point(-1, -1);
 		private TreeNode _rightClickedNode;
+		private ToolStripMenuItem moveToToolStripMenuItem;
 		private bool _waitingForRestart;
 		private Form _popoutForm;
 		private Skin _uploadedSkin;
@@ -2720,10 +2721,29 @@ namespace MCSkin3D
 
 		private void contextMenuStrip1_Opening(object sender, CancelEventArgs e)
 		{
+			moveToToolStripMenuItem.Text = LanguageLoader.GetStringWithFallback("M_MOVE_TO");
+			moveToToolStripMenuItem.Enabled = treeView1.Enabled && _rightClickedNode is Skin;
 			bROWSEIDToolStripMenuItem.Text = string.Format(GetLanguageString("M_BROWSE"),
 														   (treeView1.SelectedNode is Skin)
 															   ? GetLanguageString("M_SKIN")
 															   : GetLanguageString("M_FOLDER"));
+		}
+
+		private void PerformMoveSkin()
+		{
+			if (!treeView1.Enabled || !(_rightClickedNode is Skin skin))
+				return;
+			try
+			{
+				using (var dialog = new MoveSkinDialog(new Services.SkinMoveSession(treeView1, skin)))
+					dialog.ShowDialog(this);
+				VerifySelectionButtons();
+			}
+			catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
+			{
+				MessageBox.Show(this, string.Format(LanguageLoader.GetStringWithFallback("D_MOVE_ERROR"), ex.Message),
+					LanguageLoader.GetStringWithFallback("M_MOVE_TO"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
 		}
 
 		private void mRENDERSTATSToolStripMenuItem_Click(object sender, EventArgs e)
@@ -4360,6 +4380,12 @@ namespace MCSkin3D
 		{
 			MainForm = this;
 			InitializeComponent();
+			moveToToolStripMenuItem = new ToolStripMenuItem(LanguageLoader.GetStringWithFallback("M_MOVE_TO"))
+			{
+				Name = "moveToToolStripMenuItem", Enabled = false
+			};
+			moveToToolStripMenuItem.Click += (_, _) => PerformMoveSkin();
+			contextMenuStrip1.Items.Insert(contextMenuStrip1.Items.IndexOf(changeNameToolStripMenuItem) + 1, moveToToolStripMenuItem);
 
 			KeyPreview = true;
 			Text = Program.Name + " v" + Program.Version.ToString();

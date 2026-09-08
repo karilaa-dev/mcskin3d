@@ -26,6 +26,19 @@ namespace MCSkin3D.Languages
 {
 	public static class LanguageLoader
 	{
+		private static readonly System.Lazy<Language> EmbeddedEnglish = new System.Lazy<Language>(() =>
+		{
+			using (var reader = new StreamReader(new MemoryStream(Resources.English), Encoding.Unicode))
+				return Language.Parse(reader);
+		});
+
+		internal static string GetStringWithFallback(string key)
+		{
+			if (LanguageHandler.Language != null && LanguageHandler.Language.StringTable.TryGetValue(key, out var translated))
+				return translated;
+			return EmbeddedEnglish.Value.StringTable.TryGetValue(key, out var english) ? english : key;
+		}
+
 		public static List<Language> Languages = new List<Language>();
 
 		public static void LoadLanguages(string path)

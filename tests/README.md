@@ -10,6 +10,14 @@ The executable returns a nonzero exit code on failure. It exercises the real Win
 
 Renderer checks also verify exact geometry, UV orientation, index winding and ghost opacity, and enforce reuse of color buffers without allocations during repeated visibility changes.
 
+Skin move checks cover root/subfolder destinations, filename conflicts, locked and missing files, invalid names, new folders, multiple libraries, and junctions inside/outside the source library. Control-level checks select destinations in the expandable folder tree, retain visible ancestors and siblings, submit and cancel name prompts, recover from a deleted destination, and render normal, compact, and scaled dialog layouts. PNG artifacts are retained in `move-dialog-checks` beside the smoke executable. These checks do not replace live keyboard/mouse and monitor-DPI verification. The smoke executable has a 60-second watchdog and reports UI exceptions as failures rather than showing blocking error dialogs.
+
+For live verification on an active desktop, this optional mode opens only the move dialog with disposable skins and a filename conflict in Favorites. Its temporary directory is retained for inspection:
+
+```powershell
+dotnet run --project tests/MCSkin3D.SmokeTests -c Release -- --move-dialog
+```
+
 To also verify splash-time OpenTK initialization before a form is visible, run:
 
 ```powershell
@@ -33,6 +41,7 @@ Coverage includes:
 - Texture upload readback for straight/premultiplied alpha, 24/32-bit RGB, indexed images and negative stride; reload, disposal and allocation checks.
 - All tab creation, checkbox layout on both RGB/HSV tabs, square/wheel switching with preserved RGBA, and English language menu selection.
 - Pencil strokes through viewport hit testing and mouse handlers, undo/redo, exact saved PNG pixel verification, and skin switching/reloading.
+- The skin context menu opens and cancels the move browser. Moving an edited skin preserves its GPU pixels, dirty state, undo/redo, selection and texture object; saving and reloading use the new filename and location.
 - Eraser, eyedropper and flood fill strokes through the viewport, including undo after erasing and filling.
 - Selection of every tool and options panel, camera rotation/zoom/reset, and model part visibility. Dodge/burn, darken/lighten, noise and stamp are selected but their strokes are not covered here.
 - Swatch color editing through the picker, save/reload persistence, cloning, and PNG import into the actual skin tree. Import supplies the selected file path directly to the application's import method; the native file dialog is not automated.

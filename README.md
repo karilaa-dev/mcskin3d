@@ -1,4 +1,4 @@
-# MCSkin3D 1.7.0.0
+# MCSkin3D 1.7.1
 
 A Windows editor for painting Minecraft skins in 3D and 2D, migrated to .NET 10 and OpenTK 4.
 
@@ -32,6 +32,12 @@ Both editions save preferences in `settings.ini` and skins in `Skins` beside the
 `-GraphicsTests` additionally checks rendered pixels, opens the actual splash and editor, and exercises rendering, painting, undo/redo, saving, skin import, tabs, languages and swatches using isolated sample copies. It requires an active Windows desktop and OpenGL 3.3 support; an unavailable display is reported separately from passing tests. Modern Visual Studio with .NET 10 support or the CLI can build the projects.
 
 The desktop compatibility target is Windows 10 x64 (22H2) and Windows 11 x64, with an OpenGL 3.3 compatibility driver. The executable declares Windows 10 compatibility and runs without administrator privileges. The code audit found no Windows 11-only APIs; WinForms handles the available DPI APIs on each Windows version. Actual startup and graphics tests ran on Windows 11 build 26200, so Windows 10 execution still needs a Windows 10 test machine. Microsoft's servicing support is a separate matter: its current [.NET Windows support matrix](https://learn.microsoft.com/en-us/dotnet/core/install/windows#supported-versions) lists supported Windows 10 LTSC/Enterprise releases rather than ordinary 22H2 editions.
+
+## Moving skins
+
+Right-click a skin and choose **Move to...**. Select a destination in the expandable folder tree, then choose **Move here**. Parent folders remain visible above their children, and the path starts at Skins. Use the arrow keys to navigate the tree or **Up** to select the parent folder. The browser stays inside that skin's library. **New Folder** creates and selects a destination immediately; created folders remain if you cancel the move.
+
+If the destination already has that filename, enter a different name without `.png`. Existing files are never overwritten. Moving keeps the skin selected and preserves unsaved edits and undo history; the next save uses its new location. Drag-and-drop remains available.
 
 ## Color selection and languages
 
