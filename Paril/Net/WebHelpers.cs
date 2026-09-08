@@ -1,4 +1,4 @@
-﻿//
+//
 //    MCSkin3D, a 3d skin management studio for Minecraft
 //    Copyright (C) 2013 Altered Softworks & MCSkin3D Team
 //
@@ -16,19 +16,17 @@
 //    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 
-using System.Net;
+using System.Net.Http;
 
 namespace Paril.Net
 {
 	public static class WebHelpers
 	{
+		private static readonly HttpClient Client = new HttpClient(new HttpClientHandler { UseProxy = false });
+
 		public static byte[] DownloadFile(string url)
 		{
-			var wc = new WebClient();
-			wc.Proxy = null;
-			var data = wc.DownloadData(url);
-			wc.Dispose();
-			return data;
+			return Client.GetByteArrayAsync(url).GetAwaiter().GetResult();
 		}
 	}
 }

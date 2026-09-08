@@ -11,6 +11,7 @@ namespace MCSkin3D.Swatches
 			InitializeComponent();
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public IList<string> SwatchFormats
 		{
 			get
@@ -32,12 +33,14 @@ namespace MCSkin3D.Swatches
 			}
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public int SelectedFormat
 		{
 			get { return comboBox1.SelectedIndex; }
 			set { comboBox1.SelectedIndex = value; }
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public string OldFormat
 		{
 			get { return label3.Text; }

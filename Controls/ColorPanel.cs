@@ -27,10 +27,44 @@ namespace MCSkin3D.Controls
 
 		private bool _secondaryIsFront;
 		private bool _skipColors;
+		private readonly ColorPick _wheelPicker;
+		private readonly CheckBox _squarePickerToggle;
 
 		public ColorPanel()
 		{
 			InitializeComponent();
+			_wheelPicker = new ColorPick
+			{
+				Name = "wheelPicker", Bounds = colorPick1.Bounds,
+				Anchor = colorPick1.Anchor, Visible = false
+			};
+			_wheelPicker.HSVChanged += (sender, e) =>
+			{
+				if (!_skipColors)
+					SetColor(ColorManager.FromHSVA(_wheelPicker.CurrentHSV.H, _wheelPicker.CurrentHSV.S,
+						_wheelPicker.CurrentHSV.V, SelectedColor.HSV.A));
+			};
+			_squarePickerToggle = new CheckBox
+			{
+				Name = "squarePickerToggle", Text = "C_SQUARE", Checked = GlobalSettings.UseSquareColorPicker,
+				Anchor = AnchorStyles.None
+			};
+			_squarePickerToggle.CheckedChanged += (sender, e) =>
+			{
+				GlobalSettings.UseSquareColorPicker = _squarePickerToggle.Checked;
+				colorPick1.Visible = _squarePickerToggle.Checked;
+				_wheelPicker.Visible = !_squarePickerToggle.Checked;
+			};
+			panel2.Controls.Add(_wheelPicker);
+			panel2.Controls.Add(_squarePickerToggle);
+			panel1.Layout += (sender, e) => LayoutPickerControls();
+			panel2.Layout += (sender, e) => LayoutPickerControls();
+			LayoutPickerControls();
+			colorPick1.Visible = _squarePickerToggle.Checked;
+			_wheelPicker.Visible = !_squarePickerToggle.Checked;
+			languageProvider1.SetPropertyNames(_squarePickerToggle, "Text");
+			if (languageProvider1.Language != null)
+				languageProvider1.Language = languageProvider1.Language;
 
 			redColorSlider.Renderer = _redRenderer = new ColorSliderRenderer(redColorSlider);
 			greenColorSlider.Renderer = _greenRenderer = new ColorSliderRenderer(greenColorSlider);
@@ -42,6 +76,22 @@ namespace MCSkin3D.Controls
 			valueColorSlider.Renderer = _valueRenderer = new ValueSliderRenderer(valueColorSlider);
 
 			SetColor(ColorManager.FromRGBA(255, 255, 255, 255));
+		}
+
+		private void LayoutPickerControls()
+		{
+			if (_squarePickerToggle?.Parent == null || colorPreview2.Parent != _squarePickerToggle.Parent)
+				return;
+
+			// The designer controls have already been scaled when this runtime control
+			// is added. Position it relative to those controls, including after tab moves.
+			float scale = DeviceDpi / 96f;
+			int gap = (int)Math.Round(8 * scale);
+			int left = colorPreview1.Left - gap;
+			int top = Math.Max(colorPreview1.Bottom, colorPreview2.Bottom) + gap;
+			int width = Math.Min((int)Math.Round(86 * scale), _squarePickerToggle.Parent.ClientSize.Width - left - gap);
+			_squarePickerToggle.SetBounds(left, top, Math.Max(1, width), (int)Math.Round(36 * scale));
+			_wheelPicker.Bounds = colorPick1.Bounds;
 		}
 
 		#region Properties
@@ -56,12 +106,14 @@ namespace MCSkin3D.Controls
 			get { return textBox1; }
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public ColorManager SelectedColor
 		{
 			get { return (_secondaryIsFront) ? _secondaryColor : _primaryColor; }
 			set { SetColor(value); }
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public ColorManager UnselectedColor
 		{
 			get { return (!_secondaryIsFront) ? _secondaryColor : _primaryColor; }
@@ -124,6 +176,7 @@ namespace MCSkin3D.Controls
 
 			_skipColors = true;
 			colorPick1.CurrentHSV = currentColor.HSV;
+			_wheelPicker.CurrentHSV = currentColor.HSV;
 
 			redNumericUpDown.Value = currentColor.RGB.R;
 			greenNumericUpDown.Value = currentColor.RGB.G;
@@ -197,6 +250,8 @@ namespace MCSkin3D.Controls
 				var panel = (Panel)colorTabControl.SelectedTab.Controls[0];
 
 				panel.Controls.Add(colorPick1);
+				panel.Controls.Add(_wheelPicker);
+				panel.Controls.Add(_squarePickerToggle);
 				panel.Controls.Add(colorPreview1);
 				panel.Controls.Add(colorPreview2);
 				panel.Controls.Add(label5);

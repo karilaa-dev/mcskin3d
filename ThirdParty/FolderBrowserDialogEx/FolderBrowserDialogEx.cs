@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
@@ -52,15 +52,15 @@ namespace DaveChambers.FolderBrowserDialogEx
 			bi.lpfn = _browseCallbackHandler;
 			// Initialization data, used in _browseCallbackHandler
 			IntPtr hInit = Marshal.AllocHGlobal(Marshal.SizeOf(initdata));
-			Marshal.StructureToPtr(initdata, hInit, true);
-			bi.lParam = hInit;
 
 			IntPtr pidlSelectedPath = IntPtr.Zero;
 			try
 			{
+				Marshal.StructureToPtr(initdata, hInit, false);
+				bi.lParam = hInit;
 				pidlSelectedPath = Win32.SHBrowseForFolder(ref bi);
-				var sb = new StringBuilder(256);
-				if (Win32.SHGetPathFromIDList(pidlSelectedPath, sb))
+				var sb = new StringBuilder(Win32.MAX_PATH);
+				if (pidlSelectedPath != IntPtr.Zero && Win32.SHGetPathFromIDList(pidlSelectedPath, sb))
 				{
 					SelectedPath = sb.ToString();
 					return DialogResult.OK;
@@ -70,6 +70,8 @@ namespace DaveChambers.FolderBrowserDialogEx
 			{
 				// Caller is responsible for freeing this memory.
 				Marshal.FreeCoTaskMem(pidlSelectedPath);
+				Marshal.FreeCoTaskMem(bi.pidlRoot);
+				Marshal.FreeHGlobal(hInit);
 			}
 
 			return DialogResult.Cancel;

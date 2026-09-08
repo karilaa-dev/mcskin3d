@@ -98,13 +98,14 @@ namespace MCSkin3D
 			Invalidate();
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public Point ScrollPosition
 		{
 			get
 			{
 				return new Point(
 					_scrollX,
-					GetScrollPos((int)Handle, SB_VERT));
+					GetScrollPos(Handle, SB_VERT));
 			}
 
 			set
@@ -117,7 +118,7 @@ namespace MCSkin3D
 		}
 
 		[DllImport("user32.dll", CharSet = CharSet.Auto)]
-		public static extern int GetScrollPos(int hWnd, int nBar);
+		public static extern int GetScrollPos(IntPtr hWnd, int nBar);
 
 		[DllImport("user32.dll")]
 		private static extern int SetScrollPos(IntPtr hWnd, int nBar, int nPos, bool bRedraw);

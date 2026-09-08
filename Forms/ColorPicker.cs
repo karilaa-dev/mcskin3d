@@ -37,6 +37,7 @@ namespace MultiPainter
 			get { return new HSL(colorSquare1.CurrentHue, colorSquare1.CurrentSat / 240.0f, saturationSlider1.CurrentLum / 240.0f); }
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public Color CurrentColor
 		{
 			get { return Color.FromArgb((int)numericUpDown4.Value, ColorSpaceHelper.HSLtoRGB(MyHSL).ToColor()); }

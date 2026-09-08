@@ -69,6 +69,7 @@ namespace Paril.Controls.Color
 					 ControlStyles.AllPaintingInWmPaint, true);
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public HSL Color
 		{
 			get { return _color; }
@@ -79,6 +80,7 @@ namespace Paril.Controls.Color
 			}
 		}
 
+		[System.ComponentModel.DefaultValue(0)]
 		public int CurrentLum
 		{
 			get { return _curLum; }

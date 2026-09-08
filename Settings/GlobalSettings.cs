@@ -1,4 +1,4 @@
-﻿//
+//
 //    MCSkin3D, a 3d skin management studio for Minecraft
 //    Copyright (C) 2013 Altered Softworks & MCSkin3D Team
 //
@@ -19,7 +19,6 @@
 using System.ComponentModel;
 using System.Drawing;
 using System.IO;
-using System.Security.Cryptography;
 using MCSkin3D.Macros;
 using Paril.Settings;
 using Paril.Settings.Serializers;
@@ -30,6 +29,10 @@ namespace MCSkin3D
 	{
 		private static Settings Settings;
 		public static bool Loaded;
+
+		[Savable]
+		[DefaultValue(true)]
+		public static bool UseSquareColorPicker { get; set; } = true;
 
 		[Savable]
 		[DefaultValue(true)]
@@ -55,7 +58,7 @@ namespace MCSkin3D
 
 		[Savable]
 		[DefaultValue("")]
-		[TypeSerializer(typeof(PasswordSerializer<AesManaged>), false)]
+		[TypeSerializer(typeof(PasswordSerializer), false)]
 		public static string LastPassword { get; set; }
 
 		[Savable]

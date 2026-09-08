@@ -1,4 +1,4 @@
-﻿//
+//
 //    MCSkin3D, a 3d skin management studio for Minecraft
 //    Copyright (C) 2013 Altered Softworks & MCSkin3D Team
 //
@@ -18,7 +18,7 @@
 
 using System;
 using System.Drawing;
-using OpenTK.Graphics;
+using OpenTK.Mathematics;
 
 namespace MCSkin3D
 {

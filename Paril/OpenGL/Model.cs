@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -7,7 +7,7 @@ using System.IO.Compression;
 using System.Xml;
 using MCSkin3D;
 using MCSkin3D.Controls;
-using OpenTK;
+using OpenTK.Mathematics;
 using OpenTK.Graphics.OpenGL;
 
 namespace Paril.OpenGL
@@ -120,7 +120,7 @@ namespace Paril.OpenGL
 				Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(rotate.Z)) *
 				Matrix4.CreateTranslation(translate);
 
-			return Vector3.Transform(v, m);
+			return Vector3.TransformPosition(v, m);
 		}
 
 		/*public static Model Load(string fileName)

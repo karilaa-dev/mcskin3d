@@ -1,4 +1,4 @@
-﻿//
+//
 //    MCSkin3D, a 3d skin management studio for Minecraft
 //    Copyright (C) 2013 Altered Softworks & MCSkin3D Team
 //
@@ -23,9 +23,18 @@ using System.Text;
 
 namespace Paril.Settings.Serializers
 {
-	public class PasswordSerializer<T> : ITypeSerializer
-		where T : SymmetricAlgorithm, new()
+	public class PasswordSerializer : PasswordSerializer<Aes>
 	{
+	}
+
+	public class PasswordSerializer<T> : ITypeSerializer
+		where T : SymmetricAlgorithm
+	{
+		private static SymmetricAlgorithm CreateAlgorithm()
+		{
+			return typeof(T) == typeof(Aes) ? Aes.Create() : Activator.CreateInstance<T>();
+		}
+
 		private static string passPhrase = Environment.UserName + Environment.CurrentDirectory; // can be any string
 
 		private static string saltValue = Environment.MachineName + Environment.SystemDirectory + Environment.UserDomainName;
@@ -129,7 +138,7 @@ namespace Paril.Settings.Serializers
 			// This password will be generated from the specified passphrase and 
 			// salt value. The password will be created using the specified hash 
 			// algorithm. Password creation can be done in several iterations.
-			var password = new PasswordDeriveBytes(
+			using var password = new PasswordDeriveBytes(
 				passPhrase,
 				saltValueBytes,
 				hashAlgorithm,
@@ -140,7 +149,7 @@ namespace Paril.Settings.Serializers
 			byte[] keyBytes = password.GetBytes(keySize / 8);
 
 			// Create uninitialized Rijndael encryption object.
-			var symmetricKey = new T();
+			using var symmetricKey = CreateAlgorithm();
 
 			// It is reasonable to set encryption mode to Cipher Block Chaining
 			// (CBC). Use default options for other symmetric key parameters.
@@ -149,15 +158,15 @@ namespace Paril.Settings.Serializers
 			// Generate encryptor from the existing key bytes and initialization 
 			// vector. Key size will be defined based on the number of the key 
 			// bytes.
-			ICryptoTransform encryptor = symmetricKey.CreateEncryptor(
+			using ICryptoTransform encryptor = symmetricKey.CreateEncryptor(
 				keyBytes,
 				initVectorBytes);
 
 			// Define memory stream which will be used to hold encrypted data.
-			var memoryStream = new MemoryStream();
+			using var memoryStream = new MemoryStream();
 
 			// Define cryptographic stream (always use Write mode for encryption).
-			var cryptoStream = new CryptoStream(memoryStream,
+			using var cryptoStream = new CryptoStream(memoryStream,
 												encryptor,
 												CryptoStreamMode.Write);
 			// Start encrypting.
@@ -168,10 +177,6 @@ namespace Paril.Settings.Serializers
 
 			// Convert our encrypted data from a memory stream into a byte array.
 			byte[] cipherTextBytes = memoryStream.ToArray();
-
-			// Close both streams.
-			memoryStream.Close();
-			cryptoStream.Close();
 
 			// Convert encrypted data into a base64-encoded string.
 			string cipherText = Convert.ToBase64String(cipherTextBytes);
@@ -246,7 +251,7 @@ namespace Paril.Settings.Serializers
 			// passphrase and salt value. The password will be created using
 			// the specified hash algorithm. Password creation can be done in
 			// several iterations.
-			var password = new PasswordDeriveBytes(
+			using var password = new PasswordDeriveBytes(
 				passPhrase,
 				saltValueBytes,
 				hashAlgorithm,
@@ -257,7 +262,7 @@ namespace Paril.Settings.Serializers
 			byte[] keyBytes = password.GetBytes(keySize / 8);
 
 			// Create uninitialized Rijndael encryption object.
-			var symmetricKey = new T();
+			using var symmetricKey = CreateAlgorithm();
 
 			// It is reasonable to set encryption mode to Cipher Block Chaining
 			// (CBC). Use default options for other symmetric key parameters.
@@ -266,40 +271,23 @@ namespace Paril.Settings.Serializers
 			// Generate decryptor from the existing key bytes and initialization 
 			// vector. Key size will be defined based on the number of the key 
 			// bytes.
-			ICryptoTransform decryptor = symmetricKey.CreateDecryptor(
+			using ICryptoTransform decryptor = symmetricKey.CreateDecryptor(
 				keyBytes,
 				initVectorBytes);
 
 			// Define memory stream which will be used to hold encrypted data.
-			var memoryStream = new MemoryStream(cipherTextBytes);
+			using var memoryStream = new MemoryStream(cipherTextBytes);
 
 			// Define cryptographic stream (always use Read mode for encryption).
-			var cryptoStream = new CryptoStream(memoryStream,
+			using var cryptoStream = new CryptoStream(memoryStream,
 												decryptor,
 												CryptoStreamMode.Read);
 
-			// Since at this point we don't know what the size of decrypted data
-			// will be, allocate the buffer long enough to hold ciphertext;
-			// plaintext is never longer than ciphertext.
-			var plainTextBytes = new byte[cipherTextBytes.Length];
-
-			// Start decrypting.
-			int decryptedByteCount = cryptoStream.Read(plainTextBytes,
-													   0,
-													   plainTextBytes.Length);
-
-			// Close both streams.
-			memoryStream.Close();
-			cryptoStream.Close();
-
-			// Convert decrypted data into a string. 
-			// Let us assume that the original plaintext string was UTF8-encoded.
-			string plainText = Encoding.UTF8.GetString(plainTextBytes,
-													   0,
-													   decryptedByteCount);
-
-			// Return decrypted string.   
-			return plainText;
+			// CryptoStream.Read may return a partial block on modern .NET. Read to
+			// the end so passwords are complete and final padding is validated.
+			using var plainTextStream = new MemoryStream();
+			cryptoStream.CopyTo(plainTextStream);
+			return Encoding.UTF8.GetString(plainTextStream.ToArray());
 		}
 	}
 }

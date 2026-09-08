@@ -1,0 +1,57 @@
+# Windows smoke checks
+
+Run from the repository root with the .NET 10 SDK on Windows:
+
+```powershell
+dotnet run --project tests/MCSkin3D.SmokeTests -c Release
+```
+
+The executable returns a nonzero exit code on failure. It exercises the real WinForms controls on an STA thread without starting the application, contacting the updater, or modifying saved user settings. It checks mouse and keyboard picker interaction, rendering, primary/secondary colors, hexadecimal and numeric inputs, swatches, square/wheel preference and synchronization across both color tabs, XML/TCN model import and PNG pixels/metadata. Offline HTTP fixtures verify the Minecraft profile/session/texture download flow, HTTPS upgrades, both standard skin sizes, and rejected names, profile IDs, texture addresses and images. No actual network requests are made. Generated files use a unique temporary directory that is removed after execution.
+
+Renderer checks also verify exact geometry, UV orientation, index winding and ghost opacity, and enforce reuse of color buffers without allocations during repeated visibility changes.
+
+To also verify splash-time OpenTK initialization before a form is visible, run:
+
+```powershell
+dotnet run --project tests/MCSkin3D.SmokeTests -c Release -- --startup
+```
+
+This optional check needs an active Windows desktop and an OpenGL 3.3 compatibility driver. It creates a hidden control, renders a quad using the editor's legacy OpenGL commands, and verifies GPU pixel readback. A missing primary monitor is reported as unavailable with exit code 2, never as a pass. A watchdog also terminates the process with exit code 2 if this check exceeds 20 seconds. It does not invoke application startup or replace interactive verification of the editor viewport.
+
+# Full application integration checks
+
+```powershell
+dotnet run --project tests/MCSkin3D.IntegrationTests -c Release
+```
+
+This executable invokes the actual application's DPI initialization and `MCSkin3DAppContext`, runs the splash loader and Windows message loop, and waits for the real editor to become visible. It requires an active Windows desktop with an OpenGL compatibility driver. It copies the packaged data into a new temporary directory, disables update checks in that copy, and saves all edits and preferences there. An optional first positional argument specifies a new output directory instead. The directory is retained with `integration.log`, three GPU framebuffer PNGs, edited skins and swatches for review. No installed settings or original skin files are changed.
+
+Coverage includes:
+
+- Model and skin loading, real editor HWND creation, selected skin GPU texture, and clean shutdown.
+- Perspective, texture and hybrid rendering with OpenGL error checks and framebuffer readback.
+- Texture upload readback for straight/premultiplied alpha, 24/32-bit RGB, indexed images and negative stride; reload, disposal and allocation checks.
+- All tab creation, checkbox layout on both RGB/HSV tabs, square/wheel switching with preserved RGBA, and English language menu selection.
+- Pencil strokes through viewport hit testing and mouse handlers, undo/redo, exact saved PNG pixel verification, and skin switching/reloading.
+- Eraser, eyedropper and flood fill strokes through the viewport, including undo after erasing and filling.
+- Selection of every tool and options panel, camera rotation/zoom/reset, and model part visibility. Dodge/burn, darken/lighten, noise and stamp are selected but their strokes are not covered here.
+- Swatch color editing through the picker, save/reload persistence, cloning, and PNG import into the actual skin tree. Import supplies the selected file path directly to the application's import method; the native file dialog is not automated.
+- Deferred automatic update checks: a controlled pending response does not block editor messages, notifications return to the UI thread, and closed windows receive no late dialog.
+
+Application exceptions are captured without opening error dialogs. Any exception or failed assertion returns exit code 1. A separate 90-second watchdog returns 124 for a stalled startup, modal dialog or deadlock. The test never marks unavailable graphics as passing. Minecraft web downloads remain covered by the offline smoke fixtures; online services and interactive dialogs are not covered by these checks.
+
+Painting checks temporarily isolate the test thread's keyboard-state table and restore it afterward, so live desktop modifier keys do not change the requested tool behavior. This sends no keystrokes and does not alter keyboard input in other applications. The message-pumping update test runs afterward.
+
+To reproduce the reported startup failure using the old DPI initialization:
+
+```powershell
+dotnet run --project tests/MCSkin3D.IntegrationTests -c Release -- --legacy-dpi
+```
+
+This diagnostic is expected to fail on the affected configuration. It reproduced Win32 error 5023, `Failed to set Win32 parent window of the Control`, through `TabControl` and the splash-to-editor transition on the AMD Radeon RX 9070 XT. The default initialization passes on the same machine. The log includes the actual display DPI and OpenGL driver information.
+
+To measure picking and enforce its allocation budget, add `--benchmark`. Each of the three view modes is sampled at two camera positions with 20,000 queries, after warmup. The log records elapsed time, allocated bytes, hit count and a pixel checksum. Compare checksums only with the same skin, viewport size and camera settings. Timing is diagnostic rather than a pass/fail threshold.
+
+```powershell
+dotnet run --project tests/MCSkin3D.IntegrationTests -c Release -- --benchmark
+```

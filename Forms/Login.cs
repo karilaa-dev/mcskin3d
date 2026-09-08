@@ -28,18 +28,21 @@ namespace MCSkin3D
 			InitializeComponent();
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public string Username
 		{
 			get { return textBox1.Text; }
 			set { textBox1.Text = value; }
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public string Password
 		{
 			get { return maskedTextBox1.Text; }
 			set { maskedTextBox1.Text = value; }
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public bool Remember
 		{
 			get { return checkBox1.Checked; }
@@ -50,6 +53,7 @@ namespace MCSkin3D
 			}
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public bool AutoLogin
 		{
 			get { return checkBox2.Checked; }

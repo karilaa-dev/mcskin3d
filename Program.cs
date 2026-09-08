@@ -26,7 +26,6 @@ using System.Threading;
 using System.Windows.Forms;
 using MCSkin3D.ExceptionHandler;
 using MCSkin3D.Languages;
-using SVN;
 using Version = Paril.Components.Update.Version;
 
 namespace MCSkin3D
@@ -36,6 +35,17 @@ namespace MCSkin3D
 		public const string Name = "MCSkin3D LE";
 		public static Version Version;
 		public static MCSkin3DAppContext Context;
+		internal static Action<Exception> ExceptionObserver = null;
+
+		internal static void ConfigureApplication()
+		{
+			// Establish one DPI mode before WinForms or GLFW creates any windows.
+			// Late GLFW DPI initialization otherwise makes SetParent fail for
+			// controls whose HWNDs were created while the splash was loading.
+			Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
+			Application.EnableVisualStyles();
+			Application.SetCompatibleTextRenderingDefault(false);
+		}
 
 		public static Stream GetResourceStream(string name)
 		{
@@ -61,20 +71,6 @@ namespace MCSkin3D
 		[STAThread]
 		private static void Main()
 		{
-			AppDomain.CurrentDomain.AssemblyResolve +=
-			(sender, args) =>
-			{
-				using (Stream stream = GetResourceStream(new AssemblyName(args.Name).Name + ".dll"))
-				{
-					if (stream == null)
-						return null;
-
-					var assemblyData = new Byte[stream.Length];
-					stream.Read(assemblyData, 0, assemblyData.Length);
-					return Assembly.Load(assemblyData);
-				}
-			};
-
 			MainCore();
 		}
 
@@ -92,10 +88,6 @@ namespace MCSkin3D
 			Version = new Version(Application.ProductVersion);
 
 #if !DEBUG
-			Version.Revision = Repository.Revision;
-#endif
-
-#if !DEBUG
 			try
 			{
 #endif
@@ -104,8 +96,7 @@ namespace MCSkin3D
 				Models.Convert.ConversionInterface.Convert();
 #endif
 
-				Application.EnableVisualStyles();
-				Application.SetCompatibleTextRenderingDefault(false);
+				ConfigureApplication();
 				Application.Run(new MCSkin3DAppContext());
 #if !DEBUG
 			}
@@ -128,7 +119,26 @@ namespace MCSkin3D
 
 		public static void RaiseException(Exception ex)
 		{
-			var raiseForm = Editor.MainForm.IsHandleCreated ? (Form)Editor.MainForm : (Form)Program.Context.SplashForm;
+			if (ExceptionObserver != null)
+			{
+				ExceptionObserver(ex);
+				return;
+			}
+			try
+			{
+				var logDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MCSkin3D", "Logs");
+				Directory.CreateDirectory(logDirectory);
+				File.WriteAllText(Path.Combine(logDirectory, "last-error.log"), ex.ToString());
+			}
+			catch (IOException) { }
+			catch (UnauthorizedAccessException) { }
+
+			var raiseForm = Editor.MainForm?.IsHandleCreated == true ? (Form)Editor.MainForm : (Form)Program.Context?.SplashForm;
+			if (raiseForm == null)
+			{
+				MessageBox.Show(ex.Message, "MCSkin3D", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return;
+			}
 
 			if (raiseForm.InvokeRequired)
 			{
@@ -144,7 +154,7 @@ namespace MCSkin3D
 
 			SystemSounds.Asterisk.Play();
 
-			if (Editor.MainForm.Visible)
+			if (Editor.MainForm?.Visible == true)
 				form.ShowDialog(Editor.MainForm);
 			else
 				form.ShowDialog();

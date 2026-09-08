@@ -13,6 +13,7 @@ namespace MCSkin3D.ExceptionHandler
 			InitializeComponent();
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public Exception Exception { get; set; }
 		
 		public void InitSizes()

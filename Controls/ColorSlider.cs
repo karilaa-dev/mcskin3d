@@ -672,6 +672,7 @@ namespace MB.Controls
 			get { return thumbRect; }
 		}
 
+		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 		public SliderRenderer Renderer { get; set; }
 
 		/// <summary>

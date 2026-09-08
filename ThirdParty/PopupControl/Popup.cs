@@ -1,4 +1,4 @@
-﻿#region License LGPL 3
+#region License LGPL 3
 
 // Copyright © Łukasz Świątkowski 2007–2010.
 // http://www.lukesw.net/
@@ -23,7 +23,6 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
-using System.Security.Permissions;
 using System.Windows.Forms;
 using System.Windows.Forms.VisualStyles;
 
@@ -55,21 +54,25 @@ namespace PopupControl
 		/// <summary>
 		/// Gets the content of the pop-up.
 		/// </summary>
+		[Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 		public Control Content { get; private set; }
 
 		/// <summary>
 		/// Determines which animation to use while showing the pop-up window.
 		/// </summary>
+		[DefaultValue(PopupAnimations.SystemDefault)]
 		public PopupAnimations ShowingAnimation { get; set; }
 
 		/// <summary>
 		/// Determines which animation to use while hiding the pop-up window.
 		/// </summary>
+		[DefaultValue(PopupAnimations.None)]
 		public PopupAnimations HidingAnimation { get; set; }
 
 		/// <summary>
 		/// Determines the duration of the animation.
 		/// </summary>
+		[DefaultValue(100)]
 		public int AnimationDuration { get; set; }
 
 		/// <summary>
@@ -77,18 +80,21 @@ namespace PopupControl
 		/// </summary>
 		/// <value><c>true</c> if the content should be focused after the pop-up has been opened; otherwise, <c>false</c>.</value>
 		/// <remarks>If the FocusOnOpen property is set to <c>false</c>, then pop-up cannot use the fade effect.</remarks>
+		[DefaultValue(true)]
 		public bool FocusOnOpen { get; set; }
 
 		/// <summary>
 		/// Gets or sets a value indicating whether pressing the alt key should close the pop-up.
 		/// </summary>
 		/// <value><c>true</c> if pressing the alt key does not close the pop-up; otherwise, <c>false</c>.</value>
+		[DefaultValue(true)]
 		public bool AcceptAlt { get; set; }
 
 		/// <summary>
 		/// Gets or sets a value indicating whether the <see cref="PopupControl.Popup" /> is resizable.
 		/// </summary>
 		/// <value><c>true</c> if resizable; otherwise, <c>false</c>.</value>
+		[DefaultValue(false)]
 		public bool Resizable
 		{
 			get { return _resizable && !_isChildPopupOpened; }
@@ -100,6 +106,7 @@ namespace PopupControl
 		/// </summary>
 		/// <value>
 		/// <c>true</c> if the popup is noninteractive; otherwise, <c>false</c>.</value>
+		[DefaultValue(false)]
 		public bool NonInteractive
 		{
 			get { return _nonInteractive; }
@@ -117,12 +124,14 @@ namespace PopupControl
 		/// Gets or sets a minimum size of the pop-up.
 		/// </summary>
 		/// <returns>An ordered pair of type <see cref="T:System.Drawing.Size" /> representing the width and height of a rectangle.</returns>
+		[DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
 		public new Size MinimumSize { get; set; }
 
 		/// <summary>
 		/// Gets or sets a maximum size of the pop-up.
 		/// </summary>
 		/// <returns>An ordered pair of type <see cref="T:System.Drawing.Size" /> representing the width and height of a rectangle.</returns>
+		[DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
 		public new Size MaximumSize { get; set; }
 
 		/// <summary>
@@ -131,7 +140,7 @@ namespace PopupControl
 		/// <returns>An object of type <see cref="T:System.Windows.Forms.CreateParams" /> used when creating a new window.</returns>
 		protected override CreateParams CreateParams
 		{
-			[SecurityPermission(SecurityAction.LinkDemand, Flags = SecurityPermissionFlag.UnmanagedCode)]
+
 			get
 			{
 				CreateParams cp = base.CreateParams;
@@ -247,7 +256,7 @@ namespace PopupControl
 		/// <returns>
 		/// true if the key was processed by the control; otherwise, false.
 		/// </returns>
-		[UIPermission(SecurityAction.LinkDemand, Window = UIPermissionWindow.AllWindows)]
+
 		protected override bool ProcessDialogKey(Keys keyData)
 		{
 			if (AcceptAlt && ((keyData & Keys.Alt) == Keys.Alt))
@@ -456,7 +465,7 @@ namespace PopupControl
 		/// Processes Windows messages.
 		/// </summary>
 		/// <param name="m">The Windows <see cref="T:System.Windows.Forms.Message" /> to process.</param>
-		[SecurityPermission(SecurityAction.LinkDemand, Flags = SecurityPermissionFlag.UnmanagedCode)]
+
 		protected override void WndProc(ref Message m)
 		{
 			//if (m.Msg == NativeMethods.WM_PRINT && !Visible)
@@ -473,13 +482,12 @@ namespace PopupControl
 		/// </summary>
 		/// <param name="m">The message.</param>
 		/// <returns>true, if the WndProc method from the base class shouldn't be invoked.</returns>
-		[SecurityPermission(SecurityAction.LinkDemand, Flags = SecurityPermissionFlag.UnmanagedCode)]
+
 		public bool ProcessResizing(ref Message m)
 		{
 			return InternalProcessResizing(ref m, true);
 		}
 
-		[SecurityPermission(SecurityAction.LinkDemand, Flags = SecurityPermissionFlag.UnmanagedCode)]
 		private bool InternalProcessResizing(ref Message m, bool contentControl)
 		{
 			if (m.Msg == NativeMethods.WM_NCACTIVATE && m.WParam != IntPtr.Zero && _childPopup != null && _childPopup.Visible)
@@ -493,7 +501,6 @@ namespace PopupControl
 			return false;
 		}
 
-		[SecurityPermission(SecurityAction.LinkDemand, Flags = SecurityPermissionFlag.UnmanagedCode)]
 		private bool OnGetMinMaxInfo(ref Message m)
 		{
 			var minmax = (NativeMethods.MINMAXINFO)Marshal.PtrToStructure(m.LParam, typeof(NativeMethods.MINMAXINFO));

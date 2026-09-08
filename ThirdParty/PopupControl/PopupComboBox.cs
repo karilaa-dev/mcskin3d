@@ -1,4 +1,4 @@
-﻿#region License LGPL 3
+#region License LGPL 3
 
 // Copyright © Łukasz Świątkowski 2007–2010.
 // http://www.lukesw.net/
@@ -21,7 +21,6 @@
 using System;
 using System.ComponentModel;
 using System.Drawing;
-using System.Security.Permissions;
 using System.Windows.Forms;
 
 namespace PopupControl
@@ -54,6 +53,7 @@ namespace PopupControl
 		/// Gets or sets the drop down control.
 		/// </summary>
 		/// <value>The drop down control.</value>
+		[DefaultValue(null)]
 		public Control DropDownControl
 		{
 			get { return dropDownControl; }
@@ -78,6 +78,7 @@ namespace PopupControl
 		/// <value></value>
 		/// <returns>true if the drop-down portion is displayed; otherwise, false. The default is false.
 		/// </returns>
+		[Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 		public new bool DroppedDown
 		{
 			get { return dropDown.Visible; }
@@ -143,7 +144,7 @@ namespace PopupControl
 		/// Processes Windows messages.
 		/// </summary>
 		/// <param name="m">The Windows <see cref="T:System.Windows.Forms.Message" /> to process.</param>
-		[SecurityPermission(SecurityAction.LinkDemand, Flags = SecurityPermissionFlag.UnmanagedCode)]
+
 		protected override void WndProc(ref Message m)
 		{
 			if (m.Msg == (NativeMethods.WM_COMMAND + NativeMethods.WM_REFLECT) &&

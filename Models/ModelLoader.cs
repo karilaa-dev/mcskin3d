@@ -1,4 +1,4 @@
-﻿//
+//
 //    MCSkin3D, a 3d skin management studio for Minecraft
 //    Copyright (C) 2013 Altered Softworks & MCSkin3D Team
 //
@@ -23,7 +23,7 @@ using System.IO;
 using System.Text;
 using System.Xml;
 using MCSkin3D.Models;
-using OpenTK;
+using OpenTK.Mathematics;
 using OpenTK.Graphics.OpenGL;
 using Paril.OpenGL;
 
@@ -199,9 +199,9 @@ namespace MCSkin3D
 																			translation.Y.ToString(CultureInfo.InvariantCulture) + "," +
 																			translation.Z.ToString(CultureInfo.InvariantCulture));
 												writer.WriteElementString("Rotation",
-																			OpenTK.MathHelper.RadiansToDegrees(rotation.X).ToString(CultureInfo.InvariantCulture) + "," +
-																			OpenTK.MathHelper.RadiansToDegrees(rotation.Y).ToString(CultureInfo.InvariantCulture) + "," +
-																			OpenTK.MathHelper.RadiansToDegrees(rotation.Z).ToString(CultureInfo.InvariantCulture));
+																			OpenTK.Mathematics.MathHelper.RadiansToDegrees(rotation.X).ToString(CultureInfo.InvariantCulture) + "," +
+																			OpenTK.Mathematics.MathHelper.RadiansToDegrees(rotation.Y).ToString(CultureInfo.InvariantCulture) + "," +
+																			OpenTK.Mathematics.MathHelper.RadiansToDegrees(rotation.Z).ToString(CultureInfo.InvariantCulture));
 												writer.WriteElementString("Size", (x.posX2 - x.posX1).ToString(CultureInfo.InvariantCulture) + "," + (x.posY2 - x.posY1).ToString(CultureInfo.InvariantCulture) + "," + (x.posZ2 - x.posZ1).ToString(CultureInfo.InvariantCulture));
 												writer.WriteElementString("TextureOffset", x.textureX + "," + x.textureY);
 

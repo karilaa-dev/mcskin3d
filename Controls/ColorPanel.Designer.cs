@@ -32,7 +32,7 @@
 			this.rgbTabPage = new System.Windows.Forms.TabPage();
 			this.panel2 = new System.Windows.Forms.Panel();
 			this.alphaColorSlider = new MB.Controls.ColorSlider();
-			this.colorPick1 = new MCSkin3D.lemon42.ColorPick();
+			this.colorPick1 = new MCSkin3D.Controls.SquareColorPicker();
 			this.colorPreview1 = new Paril.Controls.Color.ColorPreview();
 			this.colorPreview2 = new Paril.Controls.Color.ColorPreview();
 			this.textBox1 = new System.Windows.Forms.TextBox();
@@ -150,10 +150,6 @@
 			// colorPick1
 			// 
 			this.colorPick1.Anchor = System.Windows.Forms.AnchorStyles.None;
-			this.colorPick1.CurrentAlpha = ((short)(255));
-			this.colorPick1.CurrentHue = ((short)(0));
-			this.colorPick1.CurrentSat = ((short)(0));
-			this.colorPick1.CurrentVal = ((short)(0));
 			this.colorPick1.Location = new System.Drawing.Point(35, 9);
 			this.colorPick1.Name = "colorPick1";
 			this.colorPick1.Size = new System.Drawing.Size(147, 150);
@@ -561,6 +557,7 @@
 			// languageProvider1
 			// 
 			this.languageProvider1.BaseControl = this;
+			this.languageProvider1.SetPropertyNames(this.colorPick1, "AccessibleName");
 			// 
 			// ColorPanel
 			// 
@@ -598,7 +595,7 @@
 		private System.Windows.Forms.TabPage rgbTabPage;
 		private System.Windows.Forms.Panel panel2;
 		private MB.Controls.ColorSlider alphaColorSlider;
-		private lemon42.ColorPick colorPick1;
+		private SquareColorPicker colorPick1;
 		private Paril.Controls.Color.ColorPreview colorPreview1;
 		private Paril.Controls.Color.ColorPreview colorPreview2;
 		private System.Windows.Forms.TextBox textBox1;

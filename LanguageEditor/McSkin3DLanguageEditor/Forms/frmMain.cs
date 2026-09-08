@@ -262,10 +262,10 @@ namespace MCSkin3DLanguageEditor
                 loadedLang = Language.Language.Parse(sr);
                 curLang = loadedLang;
             }
-            catch (NoHeaderException ex)
+            catch (NoHeaderException)
             {
             }
-            catch (ParseErrorException ex)
+            catch (ParseErrorException)
             {
             }
             sr.Close();

@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Drawing;
+using System.Drawing.Imaging;
 using OpenTK.Graphics.OpenGL4;
-using Paril.Drawing;
+using PixelFormat = OpenTK.Graphics.OpenGL4.PixelFormat;
 
 namespace Paril.OpenGL
 {
@@ -52,39 +53,43 @@ namespace Paril.OpenGL
 
 		public void Generate()
 		{
-			TextureID = GL.GenTexture();
+			if (TextureID == 0)
+				TextureID = GL.GenTexture();
 		}
 
-		public override void Load(Bitmap image)
+		public override unsafe void Load(Bitmap image)
 		{
-			Generate();
-			Bind();
-
-			SetMipmapping(false);
-			SetRepeat(false);
-
-			int[,] tempData = new int[image.Width, image.Height];
-
-			unsafe
+			ArgumentNullException.ThrowIfNull(image);
+			// GDI+ supplies straight-alpha BGRA, including conversion of indexed,
+			// 24-bit and premultiplied sources. OpenGL accepts this layout directly.
+			var data = image.LockBits(new Rectangle(0, 0, image.Width, image.Height),
+				ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+			try
 			{
-				fixed (int* ptr = tempData)
+				Generate();
+				SetMipmapping(false);
+				SetRepeat(false);
+				int rowBytes = checked(image.Width * 4);
+				if (data.Stride == rowBytes)
 				{
-					int i = 0;
-
-					using (var fp = new FastPixel(image, true))
+					Upload(data.Scan0, image.Width, image.Height, PixelFormat.Bgra);
+				}
+				else
+				{
+					// Bottom-up or padded bitmap buffers need rows packed in logical order.
+					var packed = GC.AllocateUninitializedArray<byte>(checked(rowBytes * image.Height));
+					fixed (byte* destination = packed)
 					{
 						for (int y = 0; y < image.Height; ++y)
-						{
-							for (int x = 0; x < image.Width; ++x)
-							{
-								Color argb = fp.GetPixel(x, y);
-								ptr[i++] = (argb.R << 0) | (argb.G << 8) | (argb.B << 16) | (argb.A << 24);
-							}
-						}
+							System.Buffer.MemoryCopy((byte*)data.Scan0 + (long)y * data.Stride,
+								destination + (long)y * rowBytes, rowBytes, rowBytes);
+						Upload((IntPtr)destination, image.Width, image.Height, PixelFormat.Bgra);
 					}
-
-					Upload((IntPtr)ptr, image.Width, image.Height);
 				}
+			}
+			finally
+			{
+				image.UnlockBits(data);
 			}
 		}
 
@@ -118,6 +123,11 @@ namespace Paril.OpenGL
 
 		public override void Upload(IntPtr ptr, int width, int height)
 		{
+			Upload(ptr, width, height, PixelFormat.Rgba);
+		}
+
+		private void Upload(IntPtr ptr, int width, int height, PixelFormat format)
+		{
 			Bind();
 
 			GL.TexImage2D(TextureTarget.Texture2D,
@@ -126,7 +136,7 @@ namespace Paril.OpenGL
 						  width,
 						  height,
 						  0,
-						  PixelFormat.Rgba,
+						  format,
 						  PixelType.UnsignedByte,
 						  ptr);
 
@@ -199,6 +209,8 @@ namespace Paril.OpenGL
 				return;
 
 			DeleteTextureInternal(TextureID);
+			TextureID = 0;
+			_width = _height = 0;
 		}
 
 		private static void BindTextureInternal(int texID)

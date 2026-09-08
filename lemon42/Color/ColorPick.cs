@@ -36,6 +36,7 @@ namespace MCSkin3D.lemon42
 					 ControlStyles.AllPaintingInWmPaint, true);
 		}
 
+		[System.ComponentModel.DefaultValue((short)0)]
 		public short CurrentHue
 		{
 			get { return _currentHue; }
@@ -52,6 +53,7 @@ namespace MCSkin3D.lemon42
 			}
 		}
 
+		[System.ComponentModel.DefaultValue((short)0)]
 		public short CurrentSat
 		{
 			get { return _currentSat; }
@@ -68,6 +70,7 @@ namespace MCSkin3D.lemon42
 			}
 		}
 
+		[System.ComponentModel.DefaultValue((short)0)]
 		public short CurrentVal
 		{
 			get { return _currentVal; }
@@ -84,6 +87,7 @@ namespace MCSkin3D.lemon42
 			}
 		}
 
+		[System.ComponentModel.DefaultValue((short)255)]
 		public short CurrentAlpha
 		{
 			get { return _currentAlpha; }
@@ -100,6 +104,7 @@ namespace MCSkin3D.lemon42
 			}
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public ColorManager.HSVColor CurrentHSV
 		{
 			get { return new ColorManager.HSVColor(_currentHue, (byte)_currentSat, (byte)_currentVal, (byte)_currentAlpha); }
@@ -124,7 +129,9 @@ namespace MCSkin3D.lemon42
 		protected override void OnSizeChanged(EventArgs e)
 		{
 			thickness = (14);
-			wheel = ColorPickRenderer.ColorWheel(Width, thickness, 4);
+			if (wheel != null)
+				wheel.Dispose();
+			wheel = Width > 0 ? ColorPickRenderer.ColorWheel(Width, thickness, 4) : null;
 			base.OnSizeChanged(e);
 		}
 

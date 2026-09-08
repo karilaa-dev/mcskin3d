@@ -74,7 +74,7 @@ namespace Paril.Windows.Dialogs
 			if (method == null)
 				return "Unknown";
 
-			string str = "[" + method.Module.Name + "]" + " " + method;
+			string str = "[" + method.Module.Assembly.GetName().Name + "]" + " " + method;
 
 			str += "(";
 			bool started = false;

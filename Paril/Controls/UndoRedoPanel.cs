@@ -13,6 +13,7 @@ namespace Paril.Controls
 			listBox1.SelectedIndexChanged += listBox1_SelectedIndexChanged;
 		}
 
+		[System.ComponentModel.DefaultValue(null)]
 		public string ActionString
 		{
 			get { return _actionString; }

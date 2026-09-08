@@ -1,4 +1,4 @@
-﻿//
+//
 //    MCSkin3D, a 3d skin management studio for Minecraft
 //    Copyright (C) 2013 Altered Softworks & MCSkin3D Team
 //
@@ -56,7 +56,7 @@ namespace Paril.OpenGL
 			PreRender();
 
 			GL.Enable(EnableCap.CullFace);
-			GL.CullFace(CullFaceMode.Front);
+			GL.CullFace(TriangleFace.Front);
 
 			foreach (Mesh mesh in _opaqueMeshes)
 				RenderMesh(mesh);
@@ -65,9 +65,9 @@ namespace Paril.OpenGL
 
 			foreach (Mesh mesh in _transparentMeshes)
 			{
-				GL.CullFace(CullFaceMode.Back);
+				GL.CullFace(TriangleFace.Back);
 				RenderMesh(mesh);
-				GL.CullFace(CullFaceMode.Front);
+				GL.CullFace(TriangleFace.Front);
 				RenderMesh(mesh);
 			}
 
@@ -90,16 +90,16 @@ namespace Paril.OpenGL
 			PreRender();
 			
 			GL.Enable(EnableCap.CullFace);
-			GL.CullFace(CullFaceMode.Back);
+			GL.CullFace(TriangleFace.Back);
 
 			foreach (Mesh mesh in _opaqueMeshes)
 				RenderMesh(mesh);
 
 			foreach (Mesh mesh in _transparentMeshes)
 			{
-				GL.CullFace(CullFaceMode.Front);
+				GL.CullFace(TriangleFace.Front);
 				RenderMesh(mesh);
-				GL.CullFace(CullFaceMode.Back);
+				GL.CullFace(TriangleFace.Back);
 				RenderMesh(mesh);
 			}
 

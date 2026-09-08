@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Globalization;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using MCSkin3D.Languages;
 using MCSkin3D.Swatches;
@@ -9,17 +10,24 @@ namespace MCSkin3D.Forms
 {
 	public partial class Splash : Form
 	{
-		static Thread _loaderThread;
+		private Thread _loaderThread;
+		private System.Windows.Forms.Timer _loadingTimer;
+		private bool _finishedLoading;
+		private volatile bool _closing;
 
 		public Splash()
 		{
 			InitializeComponent();
+			Disposed += (sender, e) => _closing = true;
 		}
 
 		public static string LoadingValue = "(nothing?)";
 
 		public void SetLoadingString(string s)
 		{
+			if (_closing)
+				throw new OperationCanceledException();
+
 			LoadingValue = s;
 
 			if (InvokeRequired)
@@ -67,7 +75,7 @@ namespace MCSkin3D.Forms
 				// stage 4: fallback to built-in English file
 				if (useLanguage == null)
 				{
-					Program.Context.SplashForm.Invoke((Action)(() => MessageBox.Show(this, "For some reason, the default language files were missing or failed to load (did you extract?) - we'll supply you with a base language of English just so you know what you're doing!")));
+					RunOnUiThread(() => MessageBox.Show(this, "For some reason, the default language files were missing or failed to load (did you extract?) - we'll supply you with a base language of English just so you know what you're doing!"));
 					useLanguage = LanguageLoader.LoadDefault();
 				}
 			}
@@ -75,28 +83,19 @@ namespace MCSkin3D.Forms
 			return useLanguage;
 		}
 
-		object _lockObj = new object();
-
-		Action ErrorHandlerWrap(Action a)
+		private void RunOnUiThread(Action action)
 		{
-			return () =>
-			{
-				try
-				{
-					a();
-				}
-				catch (Exception ex)
-				{
-					Program.Context.SplashForm.Invoke((Action)(() => { Close(); }));
-					Program.RaiseException(new Exception("Failed to initialize program during \"" + LoadingValue + "\"", ex));
-					Application.Exit();
-				}
-			};
+			if (_closing)
+				throw new OperationCanceledException();
+
+			// Let failures propagate to the loader's single error boundary. Swallowing
+			// them here would let later stages run against a partially initialized UI.
+			Invoke(action);
 		}
 
 		void PerformLoading()
 		{
-			ErrorHandlerWrap(() =>
+			try
 			{
 				SetLoadingString("Loading Languages...");
 
@@ -104,53 +103,98 @@ namespace MCSkin3D.Forms
 
 				SetLoadingString("Initializing base forms...");
 
-				Program.Context.SplashForm.Invoke(ErrorHandlerWrap(() =>
+				RunOnUiThread(() =>
 					{
 						Editor.MainForm.FinishedLoadingLanguages();
 						Editor.MainForm.Initialize(language);
-					}));
-
-				if (GlobalSettings.AutoUpdate)
-				{
-					SetLoadingString("Checking for updates...");
-
-					if (Program.Context.Updater.CheckForUpdates())
-					{
-						Program.Context.SplashForm.Invoke(ErrorHandlerWrap(() =>
-						{
-							Editor.ShowUpdateDialog(Program.Context.SplashForm);
-						}));
-					}
-				}
+					});
 
 				SetLoadingString("Loading swatches...");
 
 				SwatchLoader.LoadSwatches();
-				Program.Context.SplashForm.Invoke(ErrorHandlerWrap(SwatchLoader.FinishedLoadingSwatches));
+				RunOnUiThread(SwatchLoader.FinishedLoadingSwatches);
 
 				SetLoadingString("Loading models...");
 
 				ModelLoader.LoadModels();
-				Program.Context.SplashForm.Invoke(ErrorHandlerWrap(Editor.MainForm.FinishedLoadingModels));
+				RunOnUiThread(Editor.MainForm.FinishedLoadingModels);
 
 				SetLoadingString("Loading skins...");
 
 				SkinLoader.LoadSkins();
 
-				Program.Context.SplashForm.Invoke(ErrorHandlerWrap(Program.Context.DoneLoadingSplash));
-
-				Program.Context.Form.Invoke(ErrorHandlerWrap(() =>
+				SetLoadingString("Opening editor...");
+				RunOnUiThread(() =>
 					{
-						Program.Context.SplashForm.Close();
-						GC.Collect();
-					}));
-			})();
+						Program.Context.DoneLoadingSplash();
+						_finishedLoading = true;
+						Close();
+						if (GlobalSettings.AutoUpdate)
+							_ = CheckForUpdatesAfterLoadingAsync(Program.Context.Form,
+								Program.Context.Updater.CheckForUpdatesAsync, Editor.ShowUpdateDialog);
+					});
+			}
+			catch (Exception) when (_closing)
+			{
+				// Closing the application can race a pending UI invocation. The
+				// background loader must stop without reopening an error dialog.
+			}
+			catch (Exception ex)
+			{
+				try
+				{
+					RunOnUiThread(() =>
+					{
+						try
+						{
+							Program.RaiseException(new Exception("Failed to initialize program during \"" + LoadingValue + "\"", ex));
+						}
+						finally
+						{
+							Close();
+							Application.Exit();
+						}
+					});
+				}
+				catch (Exception) when (_closing)
+				{
+					// The UI may have closed before the failure could be reported.
+				}
+			}
+		}
+
+		internal static async Task CheckForUpdatesAfterLoadingAsync(Form editor,
+			Func<Task<bool>> checkForUpdates, Action<IWin32Window> showUpdateDialog)
+		{
+			if (editor.IsDisposed || editor.Disposing || !editor.Visible)
+				return;
+
+			// Called on the editor's UI thread after startup. Keep the UI context
+			// while the network request is pending, so notification and close cannot race.
+			try
+			{
+				if (await checkForUpdates() && !editor.IsDisposed && !editor.Disposing && editor.Visible)
+					showUpdateDialog(editor);
+			}
+			catch (Exception ex)
+			{
+				if (!editor.IsDisposed && !editor.Disposing && editor.Visible)
+					Program.RaiseException(ex);
+			}
 		}
 
 		public static void BeginLoaderThread()
 		{
-			_loaderThread = new Thread(Program.Context.SplashForm.PerformLoading);
-			_loaderThread.Start();
+			var splash = Program.Context.SplashForm;
+			if (splash._closing || splash._loaderThread != null)
+				return;
+
+			splash._loaderThread = new Thread(splash.PerformLoading)
+			{
+				IsBackground = true,
+				Name = "MCSkin3D startup loader"
+			};
+			splash._loaderThread.Start();
 		}
 
 		private void Splash_Load(object sender, EventArgs e)
@@ -158,11 +202,25 @@ namespace MCSkin3D.Forms
 			label4.Text = Program.Name + " v" + Program.Version.ToString();
 			SetLoadingString("Doing nothing yet...");
 
-			System.Timers.Timer timer = new System.Timers.Timer();
-			timer.Interval = 100;
-			timer.Elapsed += (s, ev) => Splash.BeginLoaderThread();
-			timer.AutoReset = false;
-			timer.Start();
+			components ??= new System.ComponentModel.Container();
+			_loadingTimer = new System.Windows.Forms.Timer(components) { Interval = 100 };
+			_loadingTimer.Tick += (s, ev) =>
+			{
+				_loadingTimer.Stop();
+				_loadingTimer.Dispose();
+				_loadingTimer = null;
+				BeginLoaderThread();
+			};
+			_loadingTimer.Start();
+		}
+
+		protected override void OnFormClosed(FormClosedEventArgs e)
+		{
+			_closing = true;
+			_loadingTimer?.Stop();
+			base.OnFormClosed(e);
+			if (!_finishedLoading)
+				Application.ExitThread();
 		}
 	}
 }

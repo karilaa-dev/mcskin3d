@@ -12,10 +12,10 @@ namespace MCSkin3D
 		public Splash SplashForm;
 		public UpdateSystem.UpdateChecker Updater;
 
-		public MCSkin3DAppContext()
+		public MCSkin3DAppContext(string dataDirectory = null)
 		{
 			Program.Context = this;
-			Environment.CurrentDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+			Environment.CurrentDirectory = Path.GetFullPath(dataDirectory ?? AppContext.BaseDirectory);
 			GlobalSettings.Load();
 
 			try
@@ -28,7 +28,7 @@ namespace MCSkin3D
 			}
 
 			SplashForm = new Splash();
-			Updater = new UpdateSystem.UpdateChecker("http://alteredsoftworks.com/mcskin3d/update");
+			Updater = new UpdateSystem.UpdateChecker();
 
 			Form = new Editor();
 			Form.FormClosing += (sender, e) => GlobalSettings.Save();

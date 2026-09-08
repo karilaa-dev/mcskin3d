@@ -18,23 +18,8 @@ namespace Paril.OpenGL
 
 		public void Load(string fileName)
 		{
-			// re-write the file if it's indexed
-			var b = new Bitmap(fileName);
-
-			if (b.PixelFormat == PixelFormat.Format8bppIndexed)
-			{
-				var newBitmap = new Bitmap(b.Width, b.Height);
-
-				using (Graphics g = Graphics.FromImage(newBitmap))
-					g.DrawImage(b, 0, 0, b.Width, b.Height);
-
-				b.Dispose();
-				b = newBitmap;
-			}
-
-			Load(b);
-
-			b.Dispose();
+			using var bitmap = new Bitmap(fileName);
+			Load(bitmap);
 		}
 
 		public abstract void Load(Bitmap image);

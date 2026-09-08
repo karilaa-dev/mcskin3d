@@ -28,6 +28,7 @@ namespace MCSkin3D.Forms
 			InitializeComponent();
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public ResizeType Result
 		{
 			get;

@@ -1,4 +1,4 @@
-﻿//
+//
 //    MCSkin3D, a 3d skin management studio for Minecraft
 //    Copyright (C) 2013 Altered Softworks & MCSkin3D Team
 //
@@ -23,7 +23,6 @@ using System.Drawing;
 using System.Drawing.Design;
 using System.Linq;
 using System.Reflection;
-using System.Security.Permissions;
 using System.Windows.Forms;
 using System.Windows.Forms.Design;
 
@@ -86,7 +85,7 @@ namespace MCSkin3D.Languages
 
 	// This UITypeEditor can be associated with Int32, Double and Single
 	// properties to provide a design-mode angle selection interface.
-	[PermissionSet(SecurityAction.Demand, Name = "FullTrust")]
+
 	public class LanguageEditor : UITypeEditor
 	{
 		// Indicates whether the UITypeEditor provides a form-based (modal) dialog, 
@@ -259,6 +258,7 @@ namespace MCSkin3D.Languages
 		public void EndInit() { LanguageHandler.RegisterProvider(this); }
 	
 		Control _baseControl;
+		[DefaultValue(null)]
 		public Control BaseControl
 		{
 			get { return _baseControl; }

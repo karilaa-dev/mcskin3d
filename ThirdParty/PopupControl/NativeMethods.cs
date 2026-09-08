@@ -1,6 +1,6 @@
 #region License LGPL 3
 
-// Copyright © £ukasz Œwi¹tkowski 2007–2010.
+// Copyright Â© Â£ukasz Å’wiÂ¹tkowski 2007â€“2010.
 // http://www.lukesw.net/
 //
 // This library is free software: you can redistribute it and/or modify
@@ -22,7 +22,6 @@ using System;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Security;
-using System.Security.Permissions;
 using System.Windows.Forms;
 
 namespace PopupControl
@@ -72,8 +71,7 @@ namespace PopupControl
 		{
 			try
 			{
-				var sp = new SecurityPermission(SecurityPermissionFlag.UnmanagedCode);
-				sp.Demand();
+
 				AnimateWindow(new HandleRef(control, control.Handle), time, flags);
 			}
 			catch (SecurityException)
@@ -90,8 +88,7 @@ namespace PopupControl
 		{
 			try
 			{
-				var sp = new SecurityPermission(SecurityPermissionFlag.UnmanagedCode);
-				sp.Demand();
+
 				SetWindowPos(new HandleRef(control, control.Handle), HWND_TOPMOST, 0, 0, 0, 0, 0x13);
 			}
 			catch (SecurityException)

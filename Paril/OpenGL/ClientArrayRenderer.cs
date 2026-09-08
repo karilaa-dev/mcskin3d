@@ -1,4 +1,4 @@
-﻿//
+//
 //    MCSkin3D, a 3d skin management studio for Minecraft
 //    Copyright (C) 2013 Altered Softworks & MCSkin3D Team
 //
@@ -16,9 +16,6 @@
 //    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 
-using System.Collections.Generic;
-using OpenTK;
-using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 
 namespace Paril.OpenGL
@@ -67,39 +64,40 @@ namespace Paril.OpenGL
 		{
 			ClientArrayMeshUserData data = new ClientArrayMeshUserData();
 
-			List<Vector3> vertices = new List<Vector3>();
-			List<Vector2> texCoords = new List<Vector2>();
-			List<byte> indices = new List<byte>();
-
-			int totalCount = 0;
+			int vertexCount = 0;
+			int texCoordCount = 0;
+			int indexCount = 0;
 			foreach (var f in mesh.Faces)
 			{
-				vertices.AddRange(f.Vertices);
-				texCoords.AddRange(f.TexCoords);
-
-				foreach (var c in f.Indices)
-					indices.Add((byte)(c + totalCount));
-
-				totalCount += f.Vertices.Length;
+				vertexCount += f.Vertices.Length;
+				texCoordCount += f.TexCoords.Length;
+				indexCount += f.Indices.Length;
 			}
 
-			data.VerticeArray = new float[vertices.Count * 3];
-			data.TexCoordArray = new float[texCoords.Count * 2];
-			data.IndiceArray = indices.ToArray();
+			data.VerticeArray = new float[vertexCount * 3];
+			data.TexCoordArray = new float[texCoordCount * 2];
+			data.IndiceArray = new byte[indexCount];
 
 			int vi = 0;
-			foreach (var x in vertices)
+			int ti = 0;
+			int ii = 0;
+			int vertexOffset = 0;
+			foreach (var f in mesh.Faces)
 			{
-				data.VerticeArray[vi++] = x.X;
-				data.VerticeArray[vi++] = x.Y;
-				data.VerticeArray[vi++] = x.Z;
-			}
-
-			vi = 0;
-			foreach (var x in texCoords)
-			{
-				data.TexCoordArray[vi++] = x.X;
-				data.TexCoordArray[vi++] = x.Y;
+				foreach (var vertex in f.Vertices)
+				{
+					data.VerticeArray[vi++] = vertex.X;
+					data.VerticeArray[vi++] = vertex.Y;
+					data.VerticeArray[vi++] = vertex.Z;
+				}
+				foreach (var texCoord in f.TexCoords)
+				{
+					data.TexCoordArray[ti++] = texCoord.X;
+					data.TexCoordArray[ti++] = texCoord.Y;
+				}
+				foreach (var index in f.Indices)
+					data.IndiceArray[ii++] = (byte)(index + vertexOffset);
+				vertexOffset += f.Vertices.Length;
 			}
 
 			return data;
@@ -107,24 +105,19 @@ namespace Paril.OpenGL
 
 		public override void UpdateUserData(Mesh mesh)
 		{
-			List<Color4> colors = new List<Color4>();
-
-			Color4 color = new Color4(1, 1, 1, mesh.DrawTransparent ? 0.25f : 1.0f);
-
-			foreach (var x in mesh.Faces)
-				colors.AddRange(new Color4[] { color, color, color, color });
-
 			ClientArrayMeshUserData data = mesh.GetUserData<ClientArrayMeshUserData>();
+			int colorCount = mesh.Faces.Count * 4 * 4;
+			if (data.ColorArray == null || data.ColorArray.Length != colorCount)
+				data.ColorArray = new float[colorCount];
 
-			data.ColorArray = new float[colors.Count * 4];
-
-			int vi = 0;
-			foreach (var x in colors)
+			// Ghost visibility changes only the colors; keep the client-side buffer reusable.
+			float alpha = mesh.DrawTransparent ? 0.25f : 1.0f;
+			for (int i = 0; i < data.ColorArray.Length; i += 4)
 			{
-				data.ColorArray[vi++] = x.R;
-				data.ColorArray[vi++] = x.G;
-				data.ColorArray[vi++] = x.B;
-				data.ColorArray[vi++] = x.A;
+				data.ColorArray[i] = 1.0f;
+				data.ColorArray[i + 1] = 1.0f;
+				data.ColorArray[i + 2] = 1.0f;
+				data.ColorArray[i + 3] = alpha;
 			}
 		}
 	}

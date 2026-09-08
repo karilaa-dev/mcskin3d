@@ -50,6 +50,7 @@ namespace Paril.Controls
 			_label.Visible = false;
 		}
 
+		[System.ComponentModel.DefaultValue("")]
 		public string EmptyText
 		{
 			get { return _label.Text; }

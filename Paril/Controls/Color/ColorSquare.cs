@@ -68,6 +68,7 @@ namespace Paril.Controls.Color
 					 ControlStyles.AllPaintingInWmPaint, true);
 		}
 
+		[System.ComponentModel.DefaultValue(0)]
 		public int CurrentHue
 		{
 			get { return _currentHue; }
@@ -84,6 +85,7 @@ namespace Paril.Controls.Color
 			}
 		}
 
+		[System.ComponentModel.DefaultValue(0)]
 		public int CurrentSat
 		{
 			get { return _currentSat; }

@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Xml;
 using ICSharpCode.SharpZipLib.Zip;
-using OpenTK;
+using OpenTK.Mathematics;
 using Paril.OpenGL;
 
 namespace MCSkin3D.Models
@@ -316,16 +316,16 @@ namespace MCSkin3D.Models
 
 			if (fileName.EndsWith(".tcn"))
 			{
-				var file = new ZipFile(new FileStream(fileName, FileMode.Open, FileAccess.Read));
-
-				var enumerator = file.GetEnumerator();
-
-				while (enumerator.MoveNext())
+				using (var file = new ZipFile(new FileStream(fileName, FileMode.Open, FileAccess.Read)))
 				{
-					if (((ZipEntry)enumerator.Current).Name.EndsWith(".xml"))
+					foreach (ZipEntry entry in file)
 					{
-						document.Load(file.GetInputStream((ZipEntry)enumerator.Current));
-						break;
+						if (entry.Name.EndsWith(".xml"))
+						{
+							using (var input = file.GetInputStream(entry))
+								document.Load(input);
+							break;
+						}
 					}
 				}
 			}

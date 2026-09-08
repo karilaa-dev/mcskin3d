@@ -20,6 +20,7 @@ namespace MCSkin3D.Forms
 			FileName = fileName;
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public string FileName
 		{
 			get { return _fileName; }

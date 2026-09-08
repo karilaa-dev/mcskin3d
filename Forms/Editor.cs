@@ -1,4 +1,4 @@
-﻿//
+//
 //    MCSkin3D, a 3d skin management studio for Minecraft
 //    Copyright (C) 2013 Altered Softworks & MCSkin3D Team
 //
@@ -35,8 +35,9 @@ using MCSkin3D.Macros;
 using MCSkin3D.Properties;
 using Microsoft.VisualBasic.FileIO;
 using MultiPainter;
-using OpenTK;
-using OpenTK.Graphics;
+using OpenTK.Mathematics;
+using OpenTK.GLControl;
+using OpenTK.Windowing.Common;
 using OpenTK.Graphics.OpenGL;
 using Paril.Components;
 using Paril.Components.Shortcuts;
@@ -241,7 +242,7 @@ namespace MCSkin3D
 			GL.DepthFunc(DepthFunction.Lequal); // The Type Of Depth Testing To Do
 			GL.Hint(HintTarget.PerspectiveCorrectionHint, HintMode.Nicest); // Really Nice Perspective Calculations
 			GL.Enable(EnableCap.Blend);
-			GL.BlendFunc(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha);
+			GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 			GL.TexEnv(TextureEnvTarget.TextureEnv, TextureEnvParameter.TextureEnvMode, (int)TextureEnvMode.Modulate);
 			_cubeSides = new TextureGL(Resources.cube_sides);
 			_cubeSides.SetMipmapping(true);
@@ -651,7 +652,7 @@ namespace MCSkin3D
 				GL.Disable(EnableCap.Blend);
 
 			GL.Enable(EnableCap.CullFace);
-			GL.CullFace(CullFaceMode.Front);
+			GL.CullFace(TriangleFace.Front);
 
 			if (grassToolStripMenuItem.Checked)
 				DrawSkinnedRectangle(0, GrassY + 0.25f, 0, 1024, 0, 1024, 0, 0, 1024, 1024, _grassTop, 16, 16);
@@ -735,6 +736,12 @@ namespace MCSkin3D
 									  Vector3 start, Vector3 end,
 									  out float dist)
 		{
+			return SegmentAndPolygon(coordinates, start, end, out dist);
+		}
+
+		private static bool SegmentAndPolygon(ReadOnlySpan<Vector3> coordinates,
+			Vector3 start, Vector3 end, out float dist)
+		{
 			dist = 0;
 
 			Vector3 vec0 = new Vector3(); // Edge vector from point 0 to point 1;
@@ -748,8 +755,8 @@ namespace MCSkin3D
 
 			Vector3 iPnt = new Vector3(); // Point of intersection.
 
-			float[] uCoor = new float[4]; // Only need to support up to quad.
-			float[] vCoor = new float[4];
+			Span<float> uCoor = coordinates.Length <= 4 ? stackalloc float[4] : new float[coordinates.Length];
+			Span<float> vCoor = coordinates.Length <= 4 ? stackalloc float[4] : new float[coordinates.Length];
 			float tempD;
 
 			int i, j;
@@ -776,20 +783,20 @@ namespace MCSkin3D
 			if (j == (coordinates.Length - 1))
 				return false;  // Degenerated polygon.
 
-			Vector3.Cross(ref vec0, ref vec1, out pNrm);
+			Vector3.Cross(in vec0, in vec1, out pNrm);
 
 			if (pNrm.Length == 0.0f)
 				return false;  // Degenerated polygon.
 
 			// Compute plane D.
 			tempV3d = coordinates[0];
-			Vector3.Dot(ref pNrm, ref tempV3d, out pD);
+			Vector3.Dot(in pNrm, in tempV3d, out pD);
 
 			direction.X = end.X - start.X;
 			direction.Y = end.Y - start.Y;
 			direction.Z = end.Z - start.Z;
 
-			Vector3.Dot(ref pNrm, ref direction, out pNrmDotrDir);
+			Vector3.Dot(in pNrm, in direction, out pNrmDotrDir);
 
 			// Segment is parallel to plane. 
 			if (pNrmDotrDir == 0.0f)
@@ -942,11 +949,9 @@ namespace MCSkin3D
 			Vector3 vec0 = new Vector3(); // Edge vector from point 0 to point 1;
 			Vector3 vec1 = new Vector3(); // Edge vector from point 0 to point 2 or 3;
 			Vector3 pNrm = new Vector3();
-			float absNrmX, absNrmY, absNrmZ, pD = 0.0f;
+			float pD = 0.0f;
 			Vector3 tempV3d = new Vector3();
-			float pNrmDotrDir = 0.0f;
 
-			float tempD;
 
 			int i, j;
 
@@ -1012,7 +1017,7 @@ namespace MCSkin3D
 									(z - minDepth) / (maxDepth - minDepth));
 
 			var invert = Matrix4.Invert(matrix);
-			Vector3.Transform(ref mp, ref invert, out outPoint);
+			Vector3.TransformPosition(in mp, in invert, out outPoint);
 
 			float a = (((mp.X * invert.M14) + (mp.Y * invert.M24)) + (mp.Z * invert.M34)) + invert.M44;
 
@@ -1068,22 +1073,31 @@ namespace MCSkin3D
 				{
 					float nearest = float.MaxValue;
 					Face? hitFace = null;
-					Vector3[] hitVerts = null;
+					Span<Vector3> vertices = stackalloc Vector3[4];
+					Span<Vector3> hitVerts = stackalloc Vector3[4];
 
-					foreach (var mesh in CurrentModel.Meshes)
+					for (int meshIndex = 0; meshIndex < CurrentModel.Meshes.Count; ++meshIndex)
 					{
-						if (!CurrentModel.PartsEnabled[CurrentModel.Meshes.IndexOf(mesh)])
+						if (!CurrentModel.PartsEnabled[meshIndex])
 							continue;
+						var mesh = CurrentModel.Meshes[meshIndex];
 
 						foreach (var face in mesh.Faces)
 						{
-							var verts = (Vector3[])face.Vertices.Clone();
+							if (face.Vertices.Length > vertices.Length)
+							{
+								vertices = new Vector3[face.Vertices.Length];
+								var expandedHit = new Vector3[face.Vertices.Length];
+								hitVerts.CopyTo(expandedHit);
+								hitVerts = expandedHit;
+							}
+							var verts = vertices.Slice(0, face.Vertices.Length);
 							float dist;
 
 							for (var i = 0; i < face.Vertices.Length; ++i)
-								Vector3.Transform(ref verts[i], ref mesh.Matrix, out verts[i]);
+								Vector3.TransformPosition(in face.Vertices[i], in mesh.Matrix, out verts[i]);
 
-							if (segmentAndPoly(verts, CameraPosition, outputFar, out dist))
+							if (SegmentAndPolygon(verts, CameraPosition, outputFar, out dist))
 							{
 								if (hitFace == null || dist < nearest)
 								{
@@ -1092,7 +1106,7 @@ namespace MCSkin3D
 
 									var dir = Vector3.Normalize(outputFar - CameraPosition);
 									outputFar = CameraPosition + (dir * dist);
-									hitVerts = verts;
+									verts.CopyTo(hitVerts);
 								}
 							}
 						}
@@ -1136,30 +1150,24 @@ namespace MCSkin3D
 							(int)Math.Floor((face.TexCoords[1].X + ((face.TexCoords[3].X - face.TexCoords[1].X) * texcoord.X)) * CurrentModel.DefaultWidth),
 							(int)Math.Floor((face.TexCoords[1].Y + ((face.TexCoords[3].Y - face.TexCoords[1].Y) * texcoord.Y)) * CurrentModel.DefaultHeight));*/
 
-						var tri0 = new int[] { face.Indices[0], face.Indices[1], face.Indices[2] };
-						var tri1 = new int[] { face.Indices[0], face.Indices[2], face.Indices[3] };
+						int index0 = face.Indices[0], index1 = face.Indices[1], index2 = face.Indices[2];
 
 						var orig = CameraPosition;
 						var dir = outputFar - CameraPosition;
 
 						float t = 0, u = 0, v = 0;
-						int[] indicesHit;
 
-						if (rayTriangleIntersect(orig, dir, hitVerts[tri0[0]], hitVerts[tri0[1]], hitVerts[tri0[2]], ref t, ref u, ref v))
+						if (!rayTriangleIntersect(orig, dir, hitVerts[index0], hitVerts[index1], hitVerts[index2], ref t, ref u, ref v))
 						{
-							indicesHit = tri0;
+							index1 = face.Indices[2];
+							index2 = face.Indices[3];
+							if (!rayTriangleIntersect(orig, dir, hitVerts[index0], hitVerts[index1], hitVerts[index2], ref t, ref u, ref v))
+								return false;
 						}
-						else if (rayTriangleIntersect(orig, dir, hitVerts[tri1[0]], hitVerts[tri1[1]], hitVerts[tri1[2]], ref t, ref u, ref v))
-						{
-							indicesHit = tri1;
-						}
-						else
-							// how?
-							return false;
 
-						var st0 = face.TexCoords[indicesHit[0]];
-						var st1 = face.TexCoords[indicesHit[1]];
-						var st2 = face.TexCoords[indicesHit[2]];
+						var st0 = face.TexCoords[index0];
+						var st1 = face.TexCoords[index1];
+						var st2 = face.TexCoords[index2];
 
 						//var coord = u * tc0 + v * tc1 + (1 - u - v) * tc2;
 						var coord = (1 - u - v) * st0 + u * st1 + v * st2;
@@ -1336,7 +1344,7 @@ namespace MCSkin3D
 					GL.Enable(EnableCap.DepthTest);
 					GL.Enable(EnableCap.CullFace);
 					GL.Enable(EnableCap.Blend);
-					GL.CullFace(CullFaceMode.Back);
+					GL.CullFace(TriangleFace.Back);
 
 					TextureGL.Unbind();
 
@@ -1346,13 +1354,13 @@ namespace MCSkin3D
 					DrawCube(sizeOfCube / 2, sizeOfCube / 2, sizeOfCube / 2, true);
 
 					GL.Disable(EnableCap.DepthTest);
-					GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
+					GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Line);
 					DrawCube(sizeOfCube / 2, sizeOfCube / 2, sizeOfCube / 2, false);
-					GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
+					GL.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
 
 					GL.Disable(EnableCap.Blend);
 					GL.Disable(EnableCap.CullFace);
-					GL.CullFace(CullFaceMode.Front);
+					GL.CullFace(TriangleFace.Front);
 
 				}
 				else if (_currentViewMode == ViewMode.Orthographic)
@@ -2052,16 +2060,18 @@ namespace MCSkin3D
 
 		public static void ShowUpdateDialog(IWin32Window owner)
 		{
-			if (MessageBox.Show(owner, "There is a new update available. Would you like to head to a download location?", "Question", MessageBoxButtons.YesNo) == DialogResult.Yes)
-				Process.Start("http://www.planetminecraft.com/mod/mcskin3d/");
+			if (MessageBox.Show(owner, GetLanguageString("M_UPDATEAVAILABLE"), GetLanguageString("B_CAP_QUESTION"), MessageBoxButtons.YesNo) == DialogResult.Yes)
+				Process.Start(new ProcessStartInfo(UpdateSystem.UpdateChecker.ReleasesUrl) { UseShellExecute = true });
 		}
 
-		static void CheckForUpdates(IWin32Window owner)
+		static async void CheckForUpdates(IWin32Window owner)
 		{
-			if (Program.Context.Updater.CheckForUpdates())
+			if (await Program.Context.Updater.CheckForUpdatesAsync())
 				ShowUpdateDialog(owner);
+			else if (!Program.Context.Updater.LastCheckSucceeded)
+				MessageBox.Show(owner, GetLanguageString("M_UPDATEFAILED"));
 			else
-				MessageBox.Show(owner, "You have the latest version.");
+				MessageBox.Show(owner, GetLanguageString("B_MSG_UPTODATE"));
 		}
 
 		private void checkForUpdatesToolStripMenuItem_Click(object sender, EventArgs e)
@@ -2426,7 +2436,7 @@ namespace MCSkin3D
 			}
 		}
 
-		public void PerformImportFromSite()
+		public async void PerformImportFromSite()
 		{
 			if (!treeView1.Enabled)
 				return;
@@ -2436,7 +2446,12 @@ namespace MCSkin3D
 			if (string.IsNullOrEmpty(accountName))
 				return;
 
-			string url = "http://s3.amazonaws.com/MinecraftSkins/" + accountName + ".png";
+			accountName = accountName.Trim();
+			if (!System.Text.RegularExpressions.Regex.IsMatch(accountName, "\\A[A-Za-z0-9_]{1,16}\\z"))
+			{
+				MessageBox.Show(this, GetLanguageString("M_SKINERROR"));
+				return;
+			}
 
 			string folderLocation;
 			TreeNodeCollection collection;
@@ -2448,14 +2463,16 @@ namespace MCSkin3D
 
 			string newSkinName = accountName;
 
-			while (File.Exists(folderLocation + newSkinName + ".png"))
-				newSkinName += " - " + GetLanguageString("C_NEW");
-
 			try
 			{
-				byte[] pngData = WebHelpers.DownloadFile(url);
+				treeView1.Enabled = false;
+				byte[] pngData = await new Services.MinecraftSkinClient().DownloadSkinAsync(accountName);
+				if (IsDisposed)
+					return;
+				while (File.Exists(folderLocation + newSkinName + ".png"))
+					newSkinName += " - " + GetLanguageString("C_NEW");
 
-				using (FileStream file = File.Create(folderLocation + newSkinName + ".png"))
+				using (FileStream file = new FileStream(folderLocation + newSkinName + ".png", FileMode.CreateNew))
 					file.Write(pngData, 0, pngData.Length);
 
 				var skin = new Skin(folderLocation + newSkinName + ".png");
@@ -2466,8 +2483,14 @@ namespace MCSkin3D
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show(this, GetLanguageString("M_SKINERROR") + "\r\n" + ex);
+				if (!IsDisposed)
+					MessageBox.Show(this, GetLanguageString("M_SKINERROR") + "\r\n" + ex.Message);
 				return;
+			}
+			finally
+			{
+				if (!IsDisposed)
+					treeView1.Enabled = true;
 			}
 		}
 
@@ -3083,7 +3106,7 @@ namespace MCSkin3D
 
 		#region Update
 
-		public void Invoke(Action action)
+		public new void Invoke(Action action)
 		{
 			Invoke((Delegate)action);
 		}
@@ -4439,18 +4462,20 @@ namespace MCSkin3D
 				Directory.CreateDirectory(MacroHandler.ReplaceMacros(x));
 
 			// set up the GL control
-			var mode = new GraphicsMode();
-
-			reset:
-
-			Renderer =
-				new GLControl(new GraphicsMode(mode.ColorFormat, mode.Depth, mode.Stencil, GlobalSettings.Multisamples));
-
-			if (Renderer.Context == null)
+			OpenTK.Windowing.Desktop.GLFWProvider.EnsureInitialized();
+			unsafe
 			{
-				mode = new GraphicsMode();
-				goto reset;
+				if (OpenTK.Windowing.GraphicsLibraryFramework.GLFW.GetPrimaryMonitor() == null)
+					throw new InvalidOperationException("No active display is available. Connect or unlock a Windows desktop and restart MCSkin3D.");
 			}
+			Renderer = new GLControl(new GLControlSettings
+			{
+				API = ContextAPI.OpenGL,
+				APIVersion = new System.Version(3, 3),
+				Profile = ContextProfile.Compatability,
+				Flags = ContextFlags.Default,
+				NumberOfSamples = GlobalSettings.Multisamples
+			});
 
 			Renderer.BackColor = Color.Black;
 			Renderer.Dock = DockStyle.Fill;
@@ -4461,6 +4486,10 @@ namespace MCSkin3D
 
 			splitContainer4.Panel2.Controls.Add(Renderer);
 			Renderer.BringToFront();
+			// The splash loads resources before the editor is visible. Force the
+			// native handle here so OpenTK 4 can create its context on the UI thread.
+			_ = Renderer.Handle;
+			Renderer.MakeCurrent();
 
 			GLVendor = GL.GetString(StringName.Vendor);
 			GLVersion = GL.GetString(StringName.Version);
@@ -4535,12 +4564,12 @@ namespace MCSkin3D
 
 		private void officialMinecraftForumsThreadToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			Process.Start("http://www.minecraftforum.net/topic/746941-mcskin3d-new-skinning-program/");
+			Process.Start(new ProcessStartInfo("https://github.com/karilaa-dev/mcskin3d") { UseShellExecute = true });
 		}
 
 		private void planetMinecraftSubmissionToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			Process.Start("http://www.planetminecraft.com/mod/mcskin3d/");
+			Process.Start(new ProcessStartInfo("https://www.planetminecraft.com/mod/mcskin3d/") { UseShellExecute = true });
 		}
 
 		private void toolStripMenuItem4_Click_1(object sender, EventArgs e)
@@ -4560,7 +4589,7 @@ namespace MCSkin3D
 
 					for (var i = 0; i < 4; ++i)
 					{
-						var fv = Vector3.Transform(f.Vertices[i], m.Matrix);
+						var fv = Vector3.TransformPosition(f.Vertices[i], m.Matrix);
 						var ft = f.TexCoords[i];
 
 						if (!vertDict.ContainsKey(fv))
@@ -4597,7 +4626,7 @@ namespace MCSkin3D
 
 					for (var i = 0; i < 4; ++i)
 					{
-						vi[i] = vertDict[Vector3.Transform(f.Vertices[i], m.Matrix)] + 1;
+						vi[i] = vertDict[Vector3.TransformPosition(f.Vertices[i], m.Matrix)] + 1;
 						vt[i] = texCoordDict[f.TexCoords[i]] + 1;
 					}
 

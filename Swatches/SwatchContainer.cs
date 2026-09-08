@@ -121,7 +121,6 @@ namespace MCSkin3D
 				if (swatch.Dirty)
 				{
 					swatch.Save();
-					MessageBox.Show("Swatch " + swatch.Name + " saved");
 				}
 			}
 		}
@@ -426,6 +425,7 @@ namespace MCSkin3D
 			DoubleBuffered = true;
 		}
 
+		[System.ComponentModel.DefaultValue(null)]
 		public VScrollBar ScrollBar
 		{
 			get { return _sb; }
@@ -436,6 +436,7 @@ namespace MCSkin3D
 			}
 		}
 
+		[System.ComponentModel.DefaultValue(0)]
 		public new int Scale
 		{
 			get { return _scale; }
@@ -461,6 +462,7 @@ namespace MCSkin3D
 			get { return _lastRightSwatch != -1; }
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public Color PrimaryColor
 		{
 			get
@@ -468,9 +470,14 @@ namespace MCSkin3D
 				if (Swatch == null) return Color.White;
 				return Swatch[_lastLeftSwatch].Color;
 			}
-			set { Swatch[_lastLeftSwatch].Color = value; }
+			set
+			{
+				Swatch[_lastLeftSwatch] = new NamedColor(Swatch[_lastLeftSwatch].Name, value);
+				Invalidate();
+			}
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public Color SecondaryColor
 		{
 			get
@@ -478,9 +485,14 @@ namespace MCSkin3D
 				if (Swatch == null) return Color.White;
 				return Swatch[_lastRightSwatch].Color;
 			}
-			set { Swatch[_lastRightSwatch].Color = value; }
+			set
+			{
+				Swatch[_lastRightSwatch] = new NamedColor(Swatch[_lastRightSwatch].Name, value);
+				Invalidate();
+			}
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public int PrimaryColorIndex
 		{
 			get
@@ -491,6 +503,7 @@ namespace MCSkin3D
 			set { _lastLeftSwatch = value; }
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public int SecondaryColorIndex
 		{
 			get
@@ -501,6 +514,7 @@ namespace MCSkin3D
 			set { _lastRightSwatch = value; }
 		}
 
+		[System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
 		public ISwatch Swatch
 		{
 			get { return _colors; }
