@@ -10,6 +10,8 @@ The executable returns a nonzero exit code on failure. It exercises the real Win
 
 Renderer checks also verify exact geometry, UV orientation, index winding and ghost opacity, and enforce reuse of color buffers without allocations during repeated visibility changes.
 
+Combined-workspace checks run without an OpenGL context: chronological history across documents, redo branching and pruning, independent preview models, cape attachment, symmetric folded/spread wings, preserved UV coordinates, transformed bounds, scaled 2D picking, 3D occlusion, and wrapping native controls. Geometry illustrations and toolbar layout PNGs are retained beside the smoke executable. These illustrations verify model placement and control layout; they are not GPU framebuffer captures.
+
 Skin move checks cover root/subfolder destinations, filename conflicts, locked and missing files, invalid names, new folders, multiple libraries, and junctions inside/outside the source library. Control-level checks select destinations in the expandable folder tree, retain visible ancestors and siblings, submit and cancel name prompts, recover from a deleted destination, and render normal, compact, and scaled dialog layouts. PNG artifacts are retained in `move-dialog-checks` beside the smoke executable. These checks do not replace live keyboard/mouse and monitor-DPI verification. The smoke executable has a 60-second watchdog and reports UI exceptions as failures rather than showing blocking error dialogs.
 
 For live verification on an active desktop, this optional mode opens only the move dialog with disposable skins and a filename conflict in Favorites. Its temporary directory is retained for inspection:
@@ -46,6 +48,7 @@ Coverage includes:
 - Selection of every tool and options panel, camera rotation/zoom/reset, and model part visibility. Dodge/burn, darken/lighten, noise and stamp are selected but their strokes are not covered here.
 - Swatch color editing through the picker, save/reload persistence, cloning, and PNG import into the actual skin tree. Import supplies the selected file path directly to the application's import method; the native file dialog is not automated.
 - Deferred automatic update checks: a controlled pending response does not block editor messages, notifications return to the UI thread, and closed windows receive no late dialog.
+- Combined Skin + Cape workspace: separate document pixels and saves, target and slot switches, chronological undo/redo across swapped-out files and view modes, scaled textures, cape and folded/spread elytra strokes in all views, empty slots, and preview instance reuse. The run retains combined-view GPU framebuffer captures.
 
 Application exceptions are captured without opening error dialogs. Any exception or failed assertion returns exit code 1. A separate 90-second watchdog returns 124 for a stalled startup, modal dialog or deadlock. The test never marks unavailable graphics as passing. Minecraft web downloads remain covered by the offline smoke fixtures; online services and interactive dialogs are not covered by these checks.
 
@@ -64,3 +67,5 @@ To measure picking and enforce its allocation budget, add `--benchmark`. Each of
 ```powershell
 dotnet run --project tests/MCSkin3D.IntegrationTests -c Release -- --benchmark
 ```
+
+Official cape smoke coverage decodes every embedded asset, verifies source checksums and newest-first chronology, excludes developer API tests, blocks editing and history mutation, checks that the cape dropdown contains only custom files, and renders the full gallery at normal and compact sizes. Accessory checks compare every vertex with scalar Minecraft transforms at both endpoints and halfway spread, exercise the native slider, and verify attachment pivots and compact 2D picking. Graphics integration also captures official capes in each view and pose, attempts brush/fill/stamp strokes on a reference, checks every reference pixel remains unchanged, and verifies clearing an active reference safely. Portable publishing rejects loose official-cape folders.

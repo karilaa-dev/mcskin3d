@@ -71,7 +71,7 @@ namespace MCSkin3D
 		static float _3DRotationX = 180, _3DRotationY;
 		private float _3DZoom = -80;
 		private Texture _alphaTex;
-		private UndoBuffer _currentUndoBuffer;
+		// History is owned by the editor, across all documents.
 		private ViewMode _currentViewMode = ViewMode.Perspective;
 		private Texture _font;
 		private Texture _grassTop;
@@ -168,7 +168,7 @@ namespace MCSkin3D
 
 		public static Model CurrentModel
 		{
-			get { return MainForm._lastSkin == null ? null : MainForm._lastSkin.Model; }
+			get { return MainForm.EditingModel; }
 		}
 
 		public float ToolScale
@@ -188,6 +188,7 @@ namespace MCSkin3D
 				LanguageHandler.Language = value;
 
 				GlobalSettings.LanguageFile = LanguageHandler.Language.Culture.Name;
+				MainForm.RefreshWorkspaceControls();
 
 				if (MainForm._selectedTool != null)
 					MainForm.toolStripStatusLabel1.Text = MainForm._selectedTool.Tool.GetStatusLabelText();
@@ -226,6 +227,7 @@ namespace MCSkin3D
 			_3DRotationX = 180;
 			_3DRotationY = 0;
 			_3DOffset = Vector3.Zero;
+			FitWorkspace();
 
 			CalculateMatrices();
 			Renderer.Invalidate();
@@ -477,9 +479,11 @@ namespace MCSkin3D
 			TextureGL.Unbind();
 		}
 
-		private void DrawPlayer2D(Texture tex, Skin skin)
+		private void DrawPlayer2D(Texture tex, Skin skin, Model model = null, RectangleF? sheet = null, bool checkerboard = true)
 		{
-			if (GlobalSettings.AlphaCheckerboard)
+			GL.Color4(Color.White);
+			model ??= skin?.Model;
+			if (checkerboard && GlobalSettings.AlphaCheckerboard)
 			{
 				_alphaTex.Bind();
 
@@ -495,8 +499,8 @@ namespace MCSkin3D
 				GL.End();
 			}
 
-			if (skin != null)
-				tex.Bind();
+			if (skin == null || model == null) return;
+			tex.Bind();
 
 			GL.PushMatrix();
 
@@ -507,19 +511,20 @@ namespace MCSkin3D
 			GL.Enable(EnableCap.Blend);
 
 			GL.Translate((_2DCamOffsetX), (_2DCamOffsetY), 0);
+			if (sheet.HasValue) GL.Translate(sheet.Value.Left + model.DefaultWidth / 2, sheet.Value.Top + model.DefaultHeight / 2, 0);
 			if (skin != null)
 			{
 				float w = skin.Width;
 				float h = skin.Height;
 				GL.Begin(PrimitiveType.Quads);
 				GL.TexCoord2(0, 0);
-				GL.Vertex2(-(CurrentModel.DefaultWidth / 2), -(CurrentModel.DefaultHeight / 2));
+				GL.Vertex2(-(model.DefaultWidth / 2), -(model.DefaultHeight / 2));
 				GL.TexCoord2(1, 0);
-				GL.Vertex2((CurrentModel.DefaultWidth / 2), -(CurrentModel.DefaultHeight / 2));
+				GL.Vertex2((model.DefaultWidth / 2), -(model.DefaultHeight / 2));
 				GL.TexCoord2(1, 1);
-				GL.Vertex2((CurrentModel.DefaultWidth / 2), (CurrentModel.DefaultHeight / 2));
+				GL.Vertex2((model.DefaultWidth / 2), (model.DefaultHeight / 2));
 				GL.TexCoord2(0, 1);
-				GL.Vertex2(-(CurrentModel.DefaultWidth / 2), (CurrentModel.DefaultHeight / 2));
+				GL.Vertex2(-(model.DefaultWidth / 2), (model.DefaultHeight / 2));
 				GL.End();
 			}
 
@@ -529,11 +534,11 @@ namespace MCSkin3D
 			{
 				GL.Color4(GlobalSettings.DynamicOverlayGridColor);
 				GL.PushMatrix();
-				GL.Translate(-(CurrentModel.DefaultWidth / 2), -(CurrentModel.DefaultHeight / 2), 0);
+				GL.Translate(-(model.DefaultWidth / 2), -(model.DefaultHeight / 2), 0);
 				GL.Begin(PrimitiveType.Lines);
 
-				float wX = skin.Width / CurrentModel.DefaultWidth;
-				float wY = skin.Height / CurrentModel.DefaultHeight;
+				float wX = skin.Width / model.DefaultWidth;
+				float wY = skin.Height / model.DefaultHeight;
 
 				for (int i = 0; i <= skin.Width; ++i)
 				{
@@ -556,17 +561,17 @@ namespace MCSkin3D
 				if (_backgrounds[_selectedBackground] == _dynamicOverlay)
 				{
 					GL.PushMatrix();
-					GL.Translate(-(CurrentModel.DefaultWidth / 2), -(CurrentModel.DefaultHeight / 2), 0);
+					GL.Translate(-(model.DefaultWidth / 2), -(model.DefaultHeight / 2), 0);
 
 					float stub = (GlobalSettings.DynamicOverlayLineSize / _2DZoom);
 					float one = (1.0f / _2DZoom);
 
 					var done = new List<RectangleF>();
-					foreach (Mesh mesh in CurrentModel.Meshes)
+					foreach (Mesh mesh in model.Meshes)
 					{
 						foreach (Face face in mesh.Faces)
 						{
-							RectangleF toint = face.TexCoordsToFloat((int)CurrentModel.DefaultWidth, (int)CurrentModel.DefaultHeight);
+							RectangleF toint = face.TexCoordsToFloat((int)model.DefaultWidth, (int)model.DefaultHeight);
 
 							if (toint.Width == 0 ||
 								toint.Height == 0)
@@ -623,13 +628,13 @@ namespace MCSkin3D
 
 					GL.Begin(PrimitiveType.Quads);
 					GL.TexCoord2(0, 0);
-					GL.Vertex2(-(CurrentModel.DefaultWidth / 2), -(CurrentModel.DefaultHeight / 2));
+					GL.Vertex2(-(model.DefaultWidth / 2), -(model.DefaultHeight / 2));
 					GL.TexCoord2(1, 0);
-					GL.Vertex2((CurrentModel.DefaultWidth / 2), -(CurrentModel.DefaultHeight / 2));
+					GL.Vertex2((model.DefaultWidth / 2), -(model.DefaultHeight / 2));
 					GL.TexCoord2(1, 1);
-					GL.Vertex2((CurrentModel.DefaultWidth / 2), (CurrentModel.DefaultHeight / 2));
+					GL.Vertex2((model.DefaultWidth / 2), (model.DefaultHeight / 2));
 					GL.TexCoord2(0, 1);
-					GL.Vertex2(-(CurrentModel.DefaultWidth / 2), (CurrentModel.DefaultHeight / 2));
+					GL.Vertex2(-(model.DefaultWidth / 2), (model.DefaultHeight / 2));
 					GL.End();
 				}
 			}
@@ -664,32 +669,7 @@ namespace MCSkin3D
 			if (GlobalSettings.RenderBenchmark && IsRendering)
 				_compileTimer.Start();
 
-			if (CurrentModel != null)
-			{
-				int meshIndex = -1;
-				foreach (Mesh mesh in CurrentModel.Meshes)
-				{
-					meshIndex++;
-					bool meshVisible = CurrentModel.PartsEnabled[meshIndex];
-
-					if (meshVisible == false && !GlobalSettings.Ghost)
-						continue;
-
-					if (!mesh.IsSolid)
-						mesh.HasTransparency = _lastSkin.TransparentParts[meshIndex];
-
-					mesh.Texture = tex;
-
-					// Lazy Man Update!
-					mesh.LastDrawTransparent = mesh.DrawTransparent;
-					mesh.DrawTransparent = (meshVisible == false && GlobalSettings.Ghost);
-
-					if (mesh.LastDrawTransparent != mesh.DrawTransparent)
-						MeshRenderer.UpdateUserData(mesh);
-
-					MeshRenderer.AddMesh(mesh);
-				}
-			}
+			QueueSceneMeshes(tex);
 
 			if (GlobalSettings.RenderBenchmark && IsRendering)
 				_compileTimer.Stop();
@@ -713,7 +693,7 @@ namespace MCSkin3D
 					bool pick = GetPick(_mousePoint.X, _mousePoint.Y, out _pickPosition);
 
 					currentSkin.Load();
-					if (_selectedTool.Tool.RequestPreview(currentSkin, skin, _pickPosition.X, _pickPosition.Y))
+					if (!skin.IsReadOnly && _selectedTool.Tool.RequestPreview(currentSkin, skin, _pickPosition.X, _pickPosition.Y))
 					{
 						currentSkin.Texture = _previewPaint;
 						currentSkin.Save();
@@ -1040,150 +1020,76 @@ namespace MCSkin3D
 		public bool GetPick(int x, int y, out Point hitPixel)
 		{
 			hitPixel = new Point(-1, -1);
-
-			if (x < 0 || y < 0 || x >= Renderer.Width || y >= Renderer.Height)
-				return false;
-
+			if (_lastSkin == null || _lastSkin.IsReadOnly || x < 0 || y < 0 || x >= Renderer.Width || y >= Renderer.Height) return false;
 			var vp2d = GetViewport2D();
 			var vp3d = GetViewport3D();
 			var mousePos = new Vector2(x, y);
-
 			if (_currentViewMode == ViewMode.Orthographic || (_currentViewMode == ViewMode.Hybrid && vp2d.Contains(x, y)))
 			{
-				Vector3 output;
-
-				if (Unproject(ref _orthoCameraMatrix, vp2d, mousePos, out output, 0, -1, 1))
+				if (!Unproject(ref _orthoCameraMatrix, vp2d, mousePos, out var output, 0, -1, 1)) return false;
+				foreach (var item in _scene)
 				{
-					if (output.X < 0 || output.Y < 0 ||
-						output.X >= CurrentModel.DefaultWidth ||
-						output.Y >= CurrentModel.DefaultHeight)
-						return false;
-
-					hitPixel = new Point((int)Math.Floor(output.X), (int)Math.Floor(output.Y));
+					if (item.Document != _lastSkin) continue;
+					var rect = CombinedEnabled ? item.Sheet : new RectangleF(0, 0, item.Model.DefaultWidth, item.Model.DefaultHeight);
+					if (!rect.Contains(output.X, output.Y)) return false;
+					hitPixel = new Point((int)Math.Floor((output.X - rect.Left) * item.Document.Width / rect.Width),
+						(int)Math.Floor((output.Y - rect.Top) * item.Document.Height / rect.Height));
 					return true;
 				}
-
 				return false;
 			}
-			else if (_currentViewMode == ViewMode.Perspective || (_currentViewMode == ViewMode.Hybrid && vp3d.Contains(x, y)))
-			{
-				Vector3 outputNear, outputFar;
-
-				if (Unproject(ref _projectionMatrix, vp3d, mousePos, out outputNear, 8, 8, 512) &&
-					Unproject(ref _projectionMatrix, vp3d, mousePos, out outputFar, 512, 8, 512))
+			if (!Unproject(ref _projectionMatrix, vp3d, mousePos, out var outputFar, 512, 8, 512)) return false;
+			float nearest = float.MaxValue;
+			Face? hitFace = null;
+			Skin hitDocument = null;
+			Span<Vector3> vertices = stackalloc Vector3[4];
+			Span<Vector3> hitVerts = stackalloc Vector3[4];
+			foreach (var item in _scene)
+				for (int meshIndex = 0; meshIndex < item.Model.Meshes.Count; ++meshIndex)
 				{
-					float nearest = float.MaxValue;
-					Face? hitFace = null;
-					Span<Vector3> vertices = stackalloc Vector3[4];
-					Span<Vector3> hitVerts = stackalloc Vector3[4];
-
-					for (int meshIndex = 0; meshIndex < CurrentModel.Meshes.Count; ++meshIndex)
+					if (!item.Model.PartsEnabled[meshIndex]) continue;
+					var mesh = item.Model.Meshes[meshIndex];
+					foreach (var face in mesh.Faces)
 					{
-						if (!CurrentModel.PartsEnabled[meshIndex])
-							continue;
-						var mesh = CurrentModel.Meshes[meshIndex];
-
-						foreach (var face in mesh.Faces)
+						if (face.Vertices.Length > vertices.Length)
 						{
-							if (face.Vertices.Length > vertices.Length)
-							{
-								vertices = new Vector3[face.Vertices.Length];
-								var expandedHit = new Vector3[face.Vertices.Length];
-								hitVerts.CopyTo(expandedHit);
-								hitVerts = expandedHit;
-							}
-							var verts = vertices.Slice(0, face.Vertices.Length);
-							float dist;
-
-							for (var i = 0; i < face.Vertices.Length; ++i)
-								Vector3.TransformPosition(in face.Vertices[i], in mesh.Matrix, out verts[i]);
-
-							if (SegmentAndPolygon(verts, CameraPosition, outputFar, out dist))
-							{
-								if (hitFace == null || dist < nearest)
-								{
-									nearest = dist;
-									hitFace = face;
-
-									var dir = Vector3.Normalize(outputFar - CameraPosition);
-									outputFar = CameraPosition + (dir * dist);
-									verts.CopyTo(hitVerts);
-								}
-							}
+							vertices = new Vector3[face.Vertices.Length];
+							var expanded = new Vector3[face.Vertices.Length];
+							hitVerts.CopyTo(expanded); hitVerts = expanded;
+						}
+						var verts = vertices.Slice(0, face.Vertices.Length);
+						for (int i = 0; i < face.Vertices.Length; ++i)
+							Vector3.TransformPosition(in face.Vertices[i], in mesh.Matrix, out verts[i]);
+						if (SegmentAndPolygon(verts, CameraPosition, outputFar, out float dist) && dist < nearest)
+						{
+							if (CombinedEnabled && item.Document != _lastSkin && !mesh.IsSolid &&
+								TryPickUV(face, verts, CameraPosition, outputFar - CameraPosition, out var companionUv) &&
+								item.TransparentAt(companionUv)) continue;
+							nearest = dist; hitFace = face; hitDocument = item.Document;
+							verts.CopyTo(hitVerts);
 						}
 					}
-
-					if (hitFace.HasValue)
-					{
-						var face = hitFace.Value;
-						/*var tl = hitVerts[1];
-						var br = hitVerts[3];
-
-						var inside = outputFar - tl;
-						br -= tl;
-
-						var axis = 0;
-						Vector2 texcoord;
-
-						for (var i = 0; i < 3; ++i)
-						{
-							if (Math.Abs(br[i]) <= 0.001f)
-								axis = i;
-							else
-								inside[i] /= br[i];
-						}
-
-						switch (axis)
-						{
-							case 2:
-							default:
-								texcoord = new Vector2(inside[0], inside[1]);
-								break;
-							case 0:
-								texcoord = new Vector2(inside[2], inside[1]);
-								break;
-							case 1:
-								texcoord = new Vector2(inside[0], inside[2]);
-								break;
-						}
-							
-						hitPixel = new Point(
-							(int)Math.Floor((face.TexCoords[1].X + ((face.TexCoords[3].X - face.TexCoords[1].X) * texcoord.X)) * CurrentModel.DefaultWidth),
-							(int)Math.Floor((face.TexCoords[1].Y + ((face.TexCoords[3].Y - face.TexCoords[1].Y) * texcoord.Y)) * CurrentModel.DefaultHeight));*/
-
-						int index0 = face.Indices[0], index1 = face.Indices[1], index2 = face.Indices[2];
-
-						var orig = CameraPosition;
-						var dir = outputFar - CameraPosition;
-
-						float t = 0, u = 0, v = 0;
-
-						if (!rayTriangleIntersect(orig, dir, hitVerts[index0], hitVerts[index1], hitVerts[index2], ref t, ref u, ref v))
-						{
-							index1 = face.Indices[2];
-							index2 = face.Indices[3];
-							if (!rayTriangleIntersect(orig, dir, hitVerts[index0], hitVerts[index1], hitVerts[index2], ref t, ref u, ref v))
-								return false;
-						}
-
-						var st0 = face.TexCoords[index0];
-						var st1 = face.TexCoords[index1];
-						var st2 = face.TexCoords[index2];
-
-						//var coord = u * tc0 + v * tc1 + (1 - u - v) * tc2;
-						var coord = (1 - u - v) * st0 + u * st1 + v * st2;
-						hitPixel = new Point((int)Math.Floor(coord.X * CurrentModel.DefaultWidth), (int)Math.Floor(coord.Y * CurrentModel.DefaultHeight));
-
-						return true;
-					}
-
-					return false;
 				}
+			// The companion participates in depth testing, but cannot receive brush strokes.
+			if (!hitFace.HasValue || hitDocument != _lastSkin) return false;
+			if (!TryPickUV(hitFace.Value, hitVerts, CameraPosition, outputFar - CameraPosition, out var uv)) return false;
+			hitPixel = new Point(Math.Clamp((int)Math.Floor(uv.X * hitDocument.Width), 0, hitDocument.Width - 1),
+				Math.Clamp((int)Math.Floor(uv.Y * hitDocument.Height), 0, hitDocument.Height - 1));
+			return true;
+		}
 
-				return false;
+		private static bool TryPickUV(Face selected, ReadOnlySpan<Vector3> vertices, Vector3 origin, Vector3 direction, out Vector2 uv)
+		{
+			uv = Vector2.Zero;
+			int i0 = selected.Indices[0], i1 = selected.Indices[1], i2 = selected.Indices[2];
+			float t = 0, u = 0, v = 0;
+			if (!rayTriangleIntersect(origin, direction, vertices[i0], vertices[i1], vertices[i2], ref t, ref u, ref v))
+			{
+				i1 = selected.Indices[2]; i2 = selected.Indices[3];
+				if (!rayTriangleIntersect(origin, direction, vertices[i0], vertices[i1], vertices[i2], ref t, ref u, ref v)) return false;
 			}
-
-			return false;
+			uv = (1 - u - v) * selected.TexCoords[i0] + u * selected.TexCoords[i1] + v * selected.TexCoords[i2];
+			return true;
 		}
 
 		private void rendererControl_MouseWheel(object sender, MouseEventArgs e)
@@ -1367,7 +1273,8 @@ namespace MCSkin3D
 				else if (_currentViewMode == ViewMode.Orthographic)
 				{
 					Setup2D(new Rectangle(0, 0, Renderer.Width, Renderer.Height));
-					DrawPlayer2D(_previewPaint, skin);
+					if (CombinedEnabled) DrawWorkspace2D();
+					else DrawPlayer2D(_previewPaint, skin);
 				}
 				else
 				{
@@ -1377,7 +1284,8 @@ namespace MCSkin3D
 					DrawPlayer(_previewPaint, skin);
 
 					Setup2D(new Rectangle(0, halfHeight, Renderer.Width, halfHeight));
-					DrawPlayer2D(_previewPaint, skin);
+					if (CombinedEnabled) DrawWorkspace2D();
+					else DrawPlayer2D(_previewPaint, skin);
 				}
 
 				GL.PopMatrix();
@@ -1407,29 +1315,23 @@ namespace MCSkin3D
 			Bounds3 allBounds = Bounds3.EmptyBounds;
 			int count = 0;
 
-			if (CurrentModel != null)
+			if (CurrentModel != null || CombinedEnabled)
 			{
 				var viewMatrix =
-					Matrix4.CreateTranslation(-(CurrentModel.DefaultWidth / 2), -(CurrentModel.DefaultHeight / 2), 0) *
+					Matrix4.CreateTranslation(CombinedEnabled ? 0 : -(CurrentModel.DefaultWidth / 2), CombinedEnabled ? 0 : -(CurrentModel.DefaultHeight / 2), 0) *
 					Matrix4.CreateTranslation((_2DCamOffsetX), (_2DCamOffsetY), 0) *
 					Matrix4.CreateScale(_2DZoom, _2DZoom, 1) *
 					Matrix4.CreateTranslation((viewport.Width / 2), (viewport.Height / 2), 0);
 
 				_orthoCameraMatrix = viewMatrix * _orthoMatrix;
 
-				int meshIndex = 0;
-				foreach (Mesh mesh in CurrentModel.Meshes)
-				{
-					allBounds += mesh.Bounds;
-
-					if (CurrentModel.PartsEnabled[meshIndex])
+				foreach (var item in _scene)
+					for (int meshIndex = 0; meshIndex < item.Model.Meshes.Count; ++meshIndex)
 					{
-						vec += mesh.Bounds;
-						count++;
+						var mesh = item.Model.Meshes[meshIndex];
+						allBounds += mesh.Bounds;
+						if (item.Model.PartsEnabled[meshIndex]) { vec += mesh.Bounds; ++count; }
 					}
-
-					meshIndex++;
-				}
 			}
 
 			if (count == 0)
@@ -1568,7 +1470,7 @@ namespace MCSkin3D
 
 				foreach (var p in _paintedPixels)
 				{
-					List<int> parts = CurrentModel.GetIntersectingParts(p.Key, _lastSkin);
+					List<int> parts = _lastSkin.Model.GetIntersectingParts(p.Key, _lastSkin);
 
 					foreach (int part in parts)
 					{
@@ -1590,11 +1492,22 @@ namespace MCSkin3D
 
 			if (skin == null)
 				return;
+			if (skin.IsReadOnly)
+			{
+				CheckMouse(e.Y);
+				_mousePoint = e.Location;
+				_mouseIsDown = true;
+				_strokeButton = e.Button;
+				_tools[(int)Tools.Camera].Tool.BeginClick(skin, Point.Empty, e);
+				return;
+			}
 
 			CheckMouse(e.Y);
 
 			_mousePoint = e.Location;
 			_mouseIsDown = true;
+			_strokeButton = e.Button;
+			_isValidPick = GetPick(e.X, e.Y, out _pickPosition);
 
 			//_isValidPick = GetPick(e.X, e.Y, ref _pickPosition);
 
@@ -1630,6 +1543,13 @@ namespace MCSkin3D
 
 			if (skin == null)
 				return;
+			if (skin.IsReadOnly)
+			{
+				if (_mouseIsDown) _tools[(int)Tools.Camera].Tool.MouseMove(skin, e);
+				_mousePoint = e.Location;
+				Renderer.Invalidate();
+				return;
+			}
 
 			_isValidPick = GetPick(e.X, e.Y, out _pickPosition);
 
@@ -1668,6 +1588,7 @@ namespace MCSkin3D
 
 			if (skin == null)
 				return;
+			if (skin.IsReadOnly) { _mouseIsDown = false; return; }
 
 			using (var backup = new ColorGrabber(GlobalDirtiness.CurrentSkin, skin.Width, skin.Height))
 			{
@@ -1712,10 +1633,10 @@ namespace MCSkin3D
 
 		public void CheckUndo()
 		{
-			if (_currentUndoBuffer != null)
+			if (History != null)
 			{
-				undoToolStripMenuItem.Enabled = undoToolStripButton.Enabled = _currentUndoBuffer.CanUndo;
-				redoToolStripMenuItem.Enabled = redoToolStripButton.Enabled = _currentUndoBuffer.CanRedo;
+				undoToolStripMenuItem.Enabled = undoToolStripButton.Enabled = History.CanUndo;
+				redoToolStripMenuItem.Enabled = redoToolStripButton.Enabled = History.CanRedo;
 			}
 			else
 			{
@@ -1794,66 +1715,8 @@ namespace MCSkin3D
 
 		private void treeView1_AfterSelect(object sender, TreeViewEventArgs e)
 		{
-			if (treeView1.SelectedNode == _lastSkin ||
-				!(e.Node is Skin))
-				return;
-
-			Renderer.MakeCurrent();
-
-			if (_lastSkin != null && treeView1.SelectedNode != _lastSkin)
-			{
-				// Copy over the current changes to the tex stored in the skin.
-				// This allows us to pick up where we left off later, without undoing any work.
-				_lastSkin.CommitChanges(GlobalDirtiness.CurrentSkin, false);
-
-				// if we aren't dirty, unload
-				if (!_lastSkin.Dirty)
-					_lastSkin.Unload();
-			}
-
-			//if (_lastSkin != null)
-			//	_lastSkin.Undo.Clear();
-
-			var skin = (Skin)treeView1.SelectedNode;
-			SetCanSave(skin.Dirty);
-
-			if (skin.GLImage == null)
-				skin.Create();
-
-			if (skin == null)
-			{
-				_currentUndoBuffer = null;
-				TextureGL.Unbind();
-
-				using (var currentSkin = new ColorGrabber(GlobalDirtiness.CurrentSkin, 64, 32))
-					currentSkin.Save();
-
-				undoToolStripMenuItem.Enabled = undoToolStripButton.Enabled = false;
-				redoToolStripMenuItem.Enabled = redoToolStripButton.Enabled = false;
-			}
-			else
-			{
-				using (var glImage = new ColorGrabber(skin.GLImage, skin.Width, skin.Height))
-				{
-					glImage.Load();
-
-					glImage.Texture = GlobalDirtiness.CurrentSkin;
-					glImage.Save();
-					glImage.Texture = _previewPaint;
-					glImage.Save();
-				}
-
-				_currentUndoBuffer = skin.Undo;
-				CheckUndo();
-			}
-
-			_lastSkin = (Skin)treeView1.SelectedNode;
-
-			SetModel(skin.Model);
-			Renderer.Invalidate();
-
-			VerifySelectionButtons();
-			FillPartList();
+			if (!_activatingDocument && e.Node is Skin skin && skin != _lastSkin)
+				ActivateDocument(skin);
 		}
 
 		private void exitToolStripMenuItem_Click(object sender, EventArgs e)
@@ -2579,6 +2442,7 @@ namespace MCSkin3D
 		{
 			if (_lastSkin == null)
 				return;
+			if (_lastSkin.IsReadOnly && _lastSkin.Model != Model) return;
 
 			if (_oldModel != null &&
 				_oldModel.Model == Model)
@@ -2586,6 +2450,7 @@ namespace MCSkin3D
 
 			if (_lastSkin.Model != Model)
 			{
+				FinishStroke();
 				var oldAspect = (float)_lastSkin.Width / (float)_lastSkin.Height;
 				var newAspect = (float)Model.DefaultWidth / (float)Model.DefaultHeight;
 
@@ -2626,6 +2491,10 @@ namespace MCSkin3D
 			toolStripDropDownButton1.Text = _lastSkin.Model.Name;
 			_oldModel = _lastSkin.Model.DropDownItem;
 			_oldModel.Checked = true;
+
+			ReconcileWorkspaceModel();
+			RebuildScene();
+			RefreshWorkspaceControls();
 
 			_lastSkin.TransparentParts.Clear();
 			_lastSkin.SetTransparentParts();
@@ -3032,6 +2901,7 @@ namespace MCSkin3D
 			var radios = new List<PartTreeNode>();
 
 			treeView2.Nodes.Clear();
+			if (CurrentModel == null) return;
 
 			int meshIndex = 0;
 			foreach (Mesh part in CurrentModel.Meshes)
@@ -3416,6 +3286,7 @@ namespace MCSkin3D
 
 		protected override void OnFormClosing(FormClosingEventArgs e)
 		{
+			FinishStroke();
 			if (RecursiveNodeIsDirty(treeView1.Nodes))
 			{
 				if (
@@ -3488,7 +3359,7 @@ namespace MCSkin3D
 
 		private void UseToolOnViewport(int x, int y, bool begin = false)
 		{
-			if (_lastSkin == null)
+			if (_lastSkin == null || _lastSkin.IsReadOnly)
 				return;
 
 			if (_isValidPick)
@@ -3552,30 +3423,32 @@ namespace MCSkin3D
 
 		private void BeginUndo()
 		{
+			FinishStroke();
 			Renderer.MakeCurrent();
 		}
 
 		private void DoUndo()
 		{
-			if (!_currentUndoBuffer.CanUndo)
+			if (!History.CanUndo)
 				throw new Exception();
 
-			_currentUndoBuffer.Undo();
+			History.Undo(skin => ActivateDocument(skin));
 		}
 
 		private void EndUndo()
 		{
-			undoToolStripMenuItem.Enabled = undoToolStripButton.Enabled = _currentUndoBuffer.CanUndo;
-			redoToolStripMenuItem.Enabled = redoToolStripButton.Enabled = _currentUndoBuffer.CanRedo;
+			undoToolStripMenuItem.Enabled = undoToolStripButton.Enabled = History.CanUndo;
+			redoToolStripMenuItem.Enabled = redoToolStripButton.Enabled = History.CanRedo;
 
-			SetCanSave(_lastSkin.Dirty = true);
+			if (_lastSkin != null) SetCanSave(_lastSkin.Dirty = true);
 
 			Renderer.Invalidate();
 		}
 
 		private void PerformUndo()
 		{
-			if (!_currentUndoBuffer.CanUndo)
+			FinishStroke();
+			if (!History.CanUndo)
 				return;
 
 			BeginUndo();
@@ -3587,7 +3460,7 @@ namespace MCSkin3D
 		{
 			undoToolStripButton.DropDown.Close();
 
-			if (!_currentUndoBuffer.CanUndo)
+			if (!History.CanUndo)
 				return;
 
 			BeginUndo();
@@ -3600,33 +3473,36 @@ namespace MCSkin3D
 		{
 			_undoListBox.ListBox.Items.Clear();
 
-			foreach (IUndoable x in _currentUndoBuffer.UndoList)
+			foreach (var x in History.UndoList)
 				_undoListBox.ListBox.Items.Insert(0, x.Action);
 		}
 
 		private void BeginRedo()
 		{
+			FinishStroke();
 			Renderer.MakeCurrent();
 		}
 
 		private void DoRedo()
 		{
-			if (!_currentUndoBuffer.CanRedo)
+			if (!History.CanRedo)
 				throw new Exception();
 
-			_currentUndoBuffer.Redo();
+			History.Redo(skin => ActivateDocument(skin));
 		}
 
 		private void EndRedo()
 		{
-			SetCanSave(_lastSkin.Dirty = true);
+			CheckUndo();
+			if (_lastSkin != null) SetCanSave(_lastSkin.Dirty = true);
 
 			Renderer.Invalidate();
 		}
 
 		private void PerformRedo()
 		{
-			if (!_currentUndoBuffer.CanRedo)
+			FinishStroke();
+			if (!History.CanRedo)
 				return;
 
 			BeginRedo();
@@ -3653,15 +3529,18 @@ namespace MCSkin3D
 		{
 			_redoListBox.ListBox.Items.Clear();
 
-			foreach (IUndoable x in _currentUndoBuffer.RedoList)
+			foreach (var x in History.RedoList)
 				_redoListBox.ListBox.Items.Insert(0, x.Action);
 		}
 
 		private void SetViewMode(ViewMode newMode)
 		{
+			FinishStroke();
+			bool changed = _currentViewMode != newMode;
 			perspectiveToolStripButton.Checked = orthographicToolStripButton.Checked = hybridToolStripButton.Checked = false;
 			perspectiveToolStripMenuItem.Checked = textureToolStripMenuItem.Checked = hybridViewToolStripMenuItem.Checked = false;
 			_currentViewMode = newMode;
+			if (changed && CombinedEnabled) FitWorkspace(false);
 
 			switch (_currentViewMode)
 			{
@@ -3846,6 +3725,7 @@ namespace MCSkin3D
 
 		private void SetCanSave(bool value)
 		{
+			value &= _lastSkin != null && !_lastSkin.IsReadOnly;
 			saveToolStripButton.Enabled = saveToolStripMenuItem.Enabled = value;
 			CheckUndo();
 
@@ -3855,6 +3735,7 @@ namespace MCSkin3D
 		private void PerformSaveAs()
 		{
 			Skin skin = _lastSkin;
+			if (skin == null || skin.IsReadOnly) return;
 
 			using (var grabber = new ColorGrabber(GlobalDirtiness.CurrentSkin, skin.Width, skin.Height))
 			{
@@ -3904,6 +3785,7 @@ namespace MCSkin3D
 
 		private void PerformSaveSkin(Skin s)
 		{
+			if (s.IsReadOnly) return;
 			Renderer.MakeCurrent();
 
 			s.CommitChanges((s == _lastSkin) ? GlobalDirtiness.CurrentSkin : s.GLImage, true);
@@ -3945,12 +3827,14 @@ namespace MCSkin3D
 
 		private void PerformSaveAll()
 		{
+			FinishStroke();
 			RecursiveNodeSave(treeView1.Nodes);
 			treeView1.Invalidate();
 		}
 
 		private void PerformSave()
 		{
+			FinishStroke();
 			Skin skin = _lastSkin;
 
 			if (skin == null || !skin.Dirty)
@@ -4225,79 +4109,46 @@ namespace MCSkin3D
 			PerformNameChange();
 		}
 
-		private void RecursiveDeleteSkins(TreeNode node)
-		{
-			foreach (TreeNode sub in node.Nodes)
-			{
-				if (!(sub is Skin))
-					RecursiveDeleteSkins(sub);
-				else
-				{
-					var skin = (Skin)sub;
-
-					if (_rightClickedNode == skin)
-						_rightClickedNode = null;
-
-					if (_lastSkin == skin)
-						_lastSkin = null;
-
-					skin.Dispose();
-				}
-			}
-
-			//Directory.Delete(GetFolderForNode(node), true);
-			FileSystem.DeleteDirectory(GetFolderForNode(node), UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin, UICancelOption.DoNothing);
-		}
-
 		public void PerformDeleteSkin()
 		{
-			if (!treeView1.Enabled)
-				return;
-
-			if (treeView1.SelectedNode is Skin)
+			if (!treeView1.Enabled || treeView1.SelectedNode == null) return;
+			FinishStroke();
+			var node = treeView1.SelectedNode;
+			bool isSkin = node is Skin;
+			if (MessageBox.Show(this, GetLanguageString(isSkin ? "B_MSG_DELETESKIN" : "B_MSG_DELETEFOLDER"),
+				GetLanguageString("B_CAP_QUESTION"), MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) != DialogResult.Yes) return;
+			var documents = isSkin ? new List<Skin> { (Skin)node } : LibraryDocuments(node.Nodes).ToList();
+			if (isSkin)
 			{
-				if (
-					MessageBox.Show(this, GetLanguageString("B_MSG_DELETESKIN"), GetLanguageString("B_CAP_QUESTION"),
-									MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == DialogResult.Yes)
-				{
-					var skin = (Skin)treeView1.SelectedNode;
-
-					skin.Delete();
-					skin.Remove();
-
-					_lastSkin = null;
-
-					if (_rightClickedNode == skin)
-						_rightClickedNode = null;
-
-					if (_lastSkin == skin)
-						_lastSkin = null;
-
-					skin.Dispose();
-
-					treeView1_AfterSelect(treeView1, new TreeViewEventArgs(treeView1.SelectedNode));
-
-					Invalidate();
-				}
+				var document = (Skin)node;
+				document.Delete();
+				if (document.File.Exists) return;
 			}
 			else
 			{
-				if (
-					MessageBox.Show(this, GetLanguageString("B_MSG_DELETEFOLDER"), GetLanguageString("B_CAP_QUESTION"),
-									MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == DialogResult.Yes)
-				{
-					var folder = new DirectoryInfo(GetFolderForNode(treeView1.SelectedNode));
-
-					RecursiveDeleteSkins(treeView1.SelectedNode);
-
-					if (_lastSkin.GetNodeChain().Contains(treeView1.SelectedNode))
-						_lastSkin = null;
-
-					treeView1.SelectedNode.Remove();
-					treeView1_AfterSelect(treeView1, new TreeViewEventArgs(treeView1.SelectedNode));
-					Invalidate();
-				}
+				string folder = GetFolderForNode(node);
+				FileSystem.DeleteDirectory(folder, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin, UICancelOption.DoNothing);
+				if (Directory.Exists(folder)) return;
 			}
+			// Only discard in-memory edits and history once deletion has actually succeeded.
+			_activatingDocument = true;
+			try
+			{
+				foreach (var document in documents)
+				{
+					History.Remove(document);
+					if (_workspaceSkin == document) _workspaceSkin = null;
+					if (_workspaceCape == document) _workspaceCape = null;
+					if (_lastSkin == document) _lastSkin = null;
+					document.Dispose();
+				}
+				_rightClickedNode = null;
+				node.Remove();
+			}
+			finally { _activatingDocument = false; }
+			var next = _lastSkin ?? (CombinedEnabled ? _workspaceSkin ?? _workspaceCape : treeView1.SelectedNode as Skin);
+			ActivateDocument(next);
+			treeView1.Invalidate();
 		}
 
 		public void PerformCloneSkin()
@@ -4380,6 +4231,7 @@ namespace MCSkin3D
 		{
 			MainForm = this;
 			InitializeComponent();
+			InitializeWorkspace();
 			moveToToolStripMenuItem = new ToolStripMenuItem(LanguageLoader.GetStringWithFallback("M_MOVE_TO"))
 			{
 				Name = "moveToToolStripMenuItem", Enabled = false

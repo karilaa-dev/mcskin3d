@@ -3,7 +3,7 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>MCSkin3D</RootNamespace>
     <AssemblyName>MCSkin3D</AssemblyName>
-    <Version>1.7.1</Version>
+    <Version>1.7.2</Version>
     <ApplicationIcon>Icon_new.ico</ApplicationIcon>
     <ApplicationManifest>build\app.manifest</ApplicationManifest>
     <PublishSingleFile>true</PublishSingleFile>
@@ -17,6 +17,14 @@
     <Compile Include="BackgroundImage.cs" />
     <Compile Include="Services\MinecraftSkinClient.cs" />
     <Compile Include="Services\SkinMoveSession.cs" />
+    <Compile Include="Services\EditorHistory.cs" />
+    <Compile Include="Services\PreviewScene.cs" />
+    <Compile Include="Services\OfficialCapeCatalog.cs" />
+    <Compile Include="Forms\OfficialCapeDialog.cs" />
+    <EmbeddedResource Include="Assets\OfficialCapes\*.png;Assets\OfficialCapes\catalog.xml">
+      <LogicalName>MCSkin3D.OfficialCapes.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+    <Compile Include="Forms\Editor.Workspace.cs" />
     <Compile Include="Forms\MoveSkinDialog.cs" />
     <Compile Include="Controls\AlphaSliderRenderer.cs" />
     <Compile Include="Controls\ColorPanel.cs">

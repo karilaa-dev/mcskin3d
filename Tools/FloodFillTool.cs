@@ -120,7 +120,7 @@ namespace MCSkin3D
 		{
 			_done = false;
 			if (_undo.Points.Count != 0)
-				skin.Undo.AddBuffer(_undo);
+				Editor.MainForm.RecordEdit(skin, _undo);
 			_undo = null;
 
 			Editor.MainForm.CheckUndo();

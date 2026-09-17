@@ -42,6 +42,10 @@ try {
             if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }
             $looseBinaries = Get-ChildItem -LiteralPath $stagingDirectory -File | Where-Object { $_.Extension -in '.dll', '.pdb', '.json' }
             if ($looseBinaries) { throw 'Single-file publishing unexpectedly left runtime files beside the executable.' }
+            if ((Test-Path -LiteralPath (Join-Path $stagingDirectory 'OfficialCapes')) -or
+                (Test-Path -LiteralPath (Join-Path $stagingDirectory 'Assets/OfficialCapes'))) {
+                throw 'Official cape previews must stay embedded; the portable file layout cannot include a cape asset folder.'
+            }
             $runtimeNote = if ($selfContained) { 'The .NET runtime is included; no separate installation is needed.' } else { 'Requires the x64 .NET 10 Desktop Runtime. Official installer: https://dotnet.microsoft.com/en-us/download/dotnet/thank-you/runtime-desktop-10.0.11-windows-x64-installer' }
             $applicationVersion = (Get-Item -LiteralPath (Join-Path $stagingDirectory 'MCSkin3D.exe')).VersionInfo.ProductVersion
             [IO.File]::WriteAllText((Join-Path $stagingDirectory 'readme.txt'), "MCSkin3D $applicationVersion - $packageKind edition`r`n`r`nExtract the entire archive to a writable folder and run MCSkin3D.exe.`r`nKeep Languages, Models, Skins, Swatches and Overlays beside the executable.`r`nSettings are saved as settings.ini in the same folder.`r`n$runtimeNote`r`nBoth editions contain the same editor features, languages and sample assets.`r`n")

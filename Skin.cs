@@ -40,12 +40,26 @@ namespace MCSkin3D
 		public Texture GLImage;
 		public Bitmap Head;
 		public Size Size;
-		public UndoBuffer Undo;
 		public bool IsLastSkin { get; set; }
+		public OfficialCape ReferenceCape { get; }
+		public bool IsReadOnly => ReferenceCape != null;
+
+		internal Skin(OfficialCape cape) : this(cape.Id + ".png")
+		{
+			ReferenceCape = cape;
+			Name = cape.Name;
+			Model = ModelLoader.GetModelForPath("Players/Cape");
+			using var image = cape.OpenTexture();
+			Size = image.Size;
+		}
+
+		internal void EnsureEditable()
+		{
+			if (IsReadOnly) throw new InvalidOperationException("Official capes are read-only preview references.");
+		}
 
 		public Skin(string fileName)
 		{
-			Undo = new UndoBuffer(this);
 			Name = Path.GetFileNameWithoutExtension(fileName);
 		}
 
@@ -94,7 +108,7 @@ namespace MCSkin3D
 
 		public FileInfo File
 		{
-			get { return new FileInfo(Directory.FullName + '\\' + Name + ".png"); }
+			get { EnsureEditable(); return new FileInfo(Directory.FullName + '\\' + Name + ".png"); }
 		}
 
 		#region IDisposable Members
@@ -119,13 +133,19 @@ namespace MCSkin3D
 		static void SetImage(Skin skin)
 		{
 			Editor.MainForm.Renderer.MakeCurrent();
-			skin.GLImage = new TextureGL(skin.File.FullName);
+			if (skin.IsReadOnly)
+			{
+				using var image = skin.ReferenceCape.OpenTexture();
+				skin.GLImage = new TextureGL(image);
+			}
+			else skin.GLImage = new TextureGL(skin.File.FullName);
 			skin.GLImage.SetMipmapping(false);
 			skin.GLImage.SetRepeat(false);
 		}
 
 		public bool SetImages(bool updateGL = true)
 		{
+			if (IsReadOnly) return true;
 			Bitmap image = null;
 
 			try
@@ -228,6 +248,8 @@ namespace MCSkin3D
 
 		public void CommitChanges(Texture currentSkin, bool save)
 		{
+			// Switching away from a reference must never copy a working texture into it.
+			if (IsReadOnly) return;
 			using (var grabber = new ColorGrabber(currentSkin, Width, Height))
 			{
 				grabber.Load();
@@ -270,6 +292,7 @@ namespace MCSkin3D
 
 		public bool ChangeName(string newName, bool force = false)
 		{
+			EnsureEditable();
 			if (!newName.EndsWith(".png"))
 				newName += ".png";
 
@@ -291,6 +314,27 @@ namespace MCSkin3D
 
 		public void Resize(int width, int height, ResizeType type = ResizeType.Scale)
 		{
+			EnsureEditable();
+			Editor.MainForm?.PrepareDocumentResize(this);
+			using var source = new Bitmap(Width, Height);
+			if (GLImage != null)
+			{
+				using var pixels = new ColorGrabber(GLImage, Width, Height);
+				pixels.Load();
+				using var output = new FastPixel(source, true);
+				for (int y = 0; y < Height; ++y)
+					for (int x = 0; x < Width; ++x)
+					{
+						var pixel = pixels[x, y];
+						output.SetPixel(x, y, Color.FromArgb(pixel.Alpha, pixel.Red, pixel.Green, pixel.Blue));
+					}
+			}
+			else
+			{
+				using var image = Image.FromFile(File.FullName);
+				using var graphics = Graphics.FromImage(source);
+				graphics.DrawImageUnscaled(image, 0, 0);
+			}
 			using (var newBitmap = new Bitmap(width, height))
 			{
 				using (Graphics g = Graphics.FromImage(newBitmap))
@@ -300,30 +344,27 @@ namespace MCSkin3D
 					g.PixelOffsetMode = PixelOffsetMode.HighQuality;
 					g.Clear(Color.FromArgb(0, 0, 0, 0));
 
-					using (Image temp = System.Drawing.Image.FromFile(File.FullName))
-					{
-						if (type == ResizeType.Scale)
-							g.DrawImage(temp, 0, 0, newBitmap.Width, newBitmap.Height);
-						else
-							g.DrawImage(temp, 0, 0, temp.Width, temp.Height);
-					}
+					if (type == ResizeType.Scale)
+						g.DrawImage(source, 0, 0, newBitmap.Width, newBitmap.Height);
+					else
+						g.DrawImageUnscaled(source, 0, 0);
 				}
 
 				newBitmap.Save(File.FullName);
 
 				var md = new Dictionary<string, string>();
-				md.Add("Model", Model.Name);
+				md.Add("Model", Model.Path);
 				PNGMetadata.WriteMetadata(File.FullName, md);
 			}
 
 			SetImages();
 
-			Undo.Clear();
-			Editor.MainForm.CheckUndo();
+			Editor.MainForm?.ForgetDocumentHistory(this);
 		}
 
 		public void Delete()
 		{
+			EnsureEditable();
 			FileSystem.DeleteFile(File.FullName, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
 			//File.Delete();
 		}
@@ -335,6 +376,7 @@ namespace MCSkin3D
 
 		internal void MoveTo(string newPath, bool autoRename)
 		{
+			EnsureEditable();
 			if (string.Equals(Path.GetFullPath(newPath), File.FullName, StringComparison.OrdinalIgnoreCase))
 				return;
 			while (autoRename && (System.IO.File.Exists(newPath) || System.IO.Directory.Exists(newPath)))

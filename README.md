@@ -1,4 +1,4 @@
-# MCSkin3D 1.7.1
+# MCSkin3D 1.7.2
 
 A Windows editor for painting Minecraft skins in 3D and 2D, migrated to .NET 10 and OpenTK 4.
 
@@ -33,11 +33,33 @@ Both editions save preferences in `settings.ini` and skins in `Skins` beside the
 
 The desktop compatibility target is Windows 10 x64 (22H2) and Windows 11 x64, with an OpenGL 3.3 compatibility driver. The executable declares Windows 10 compatibility and runs without administrator privileges. The code audit found no Windows 11-only APIs; WinForms handles the available DPI APIs on each Windows version. Actual startup and graphics tests ran on Windows 11 build 26200, so Windows 10 execution still needs a Windows 10 test machine. Microsoft's servicing support is a separate matter: its current [.NET Windows support matrix](https://learn.microsoft.com/en-us/dotnet/core/install/windows#supported-versions) lists supported Windows 10 LTSC/Enterprise releases rather than ordinary 22H2 editions.
 
+## Skin + Cape workspace
+
+Enable **Skin + Cape** from the View menu or viewport toolbar. Choose a player skin and a cape from the two library selectors, then use **Edit Skin** or **Edit Cape** to choose the texture to paint. Import new PNGs with the existing library commands first; the selectors list compatible Steve/Alex and Cape/Elytra documents based on their assigned models.
+
+The 2D canvas places the cape directly above the skin with a small two-pixel gap, sharing pan and zoom. Labels sit above and below the pair, leaving the gap clear. A gold outline identifies the editable sheet. The 3D view shows the accessory on the player; switch between **Cape** and **Elytra**, then drag the wing slider from **Folded** to **Spread**. Every intermediate position previews instantly and keeps the same endpoints as the original pose buttons. Hybrid view shows both sheets and the combined character. The companion remains protected from painting. Use Reset Camera to fit the workspace, and rotate the player to inspect its back.
+
+Changing a slot preserves unsaved edits and the other slot. Preview and pose switches preserve the PNG's pixels, dimensions, and saved model. **Save** writes the active texture; **Save All** writes every dirty texture separately. The selected pair and pose are remembered during the current application session; combined mode starts off on the next launch.
+
+Undo and Redo now follow one chronological history throughout the editor. A skin stroke followed by a cape stroke is undone cape-first, then skin. Undo focuses the affected document and restores it to its slot if it was swapped out. Saving, switching views, moving, and renaming preserve history; a new stroke after Undo clears the redo branch. Deleting or resizing a document removes only that document's history. History is kept in memory for the current session.
+
 ## Moving skins
 
 Right-click a skin and choose **Move to...**. Select a destination in the expandable folder tree, then choose **Move here**. Parent folders remain visible above their children, and the path starts at Skins. Use the arrow keys to navigate the tree or **Up** to select the parent folder. The browser stays inside that skin's library. **New Folder** creates and selects a destination immediately; created folders remain if you cancel the move.
 
 If the destination already has that filename, enter a different name without `.png`. Existing files are never overwritten. Moving keeps the skin selected and preserves unsaved edits and undo history; the next save uses its new location. Drag-and-drop remains available.
+
+## Official cape previews
+
+Click the **Official Capes** button on the viewport toolbar or in the Skin + Cape workspace. The bundled gallery works offline and shows 51 verified Java and Bedrock cape designs, ordered newest to oldest. Developer API test textures are excluded. Search by name, then choose **Use cape** to preview one on your skin. The **Cape** dropdown contains only custom library files; official capes are selected exclusively through the button. The chosen official cape's name appears beside the button. Both kinds support the 2D, 3D and hybrid views, plus Cape / Elytra and the continuous wing slider.
+
+Official references are read-only: they cannot be painted, resized, renamed, moved, deleted, saved over, or added to undo history. Your selected skin stays editable. The original texture artwork is embedded separately from the user library; swapping a reference preserves unsaved skin/custom cape edits and the camera.
+
+There are no cape selection settings or account filters: the gallery always includes the full catalog, including when upgrading from settings that hid capes. The selected cape and wing pose remain session-only. Choose a custom cape from the dropdown to replace an official preview, or its empty selection to clear the cape slot.
+
+The accessory attaches at Minecraft's two-pixel offset behind the torso, with the game's resting cape tilt and mirrored elytra pivots. [Rendering notes and reference sources](docs/accessory-rendering.md) explain the coordinates and pose checks.
+
+The catalog's dates, verified texture checksums and sources are recorded in [the cape manifest](Assets/OfficialCapes/catalog.xml); artwork attribution and verification notes are in [the asset notes](Assets/OfficialCapes/README.md). The textures and catalog are embedded in the executable. The portable archive retains its existing files and folders, with no loose official cape PNGs or extra catalog folder.
 
 ## Color selection and languages
 

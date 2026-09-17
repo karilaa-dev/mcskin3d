@@ -24,7 +24,6 @@ internal static class SkinMoveChecks
             string source = Path.Combine(root, "Explorer.png");
             File.WriteAllText(source, "original pixels and metadata");
             using var skin = new Skin(source) { Dirty = true, Head = new Bitmap(32, 32) };
-            var undo = skin.Undo;
             tree.Nodes.Add(skin);
             tree.SelectedNode = skin;
             var session = new SkinMoveSession(tree, skin);
@@ -85,7 +84,7 @@ internal static class SkinMoveChecks
 
             session.Move(destination, "Renamed");
             check(!File.Exists(source) && File.ReadAllText(skin.File.FullName) == "original pixels and metadata", "Renamed move preserves file contents");
-            check(skin.Name == "Renamed" && skin.Parent.Name == "Destination" && tree.SelectedNode == skin && ReferenceEquals(skin.Undo, undo) && skin.Dirty, "Move preserves skin instance, edits, undo and selection");
+            check(skin.Name == "Renamed" && skin.Parent.Name == "Destination" && tree.SelectedNode == skin && skin.Dirty, "Move preserves skin instance, edits, undo and selection");
             var moved = new SkinMoveSession(tree, skin);
             using (var nestedDialog = new MoveSkinDialog(moved))
             {

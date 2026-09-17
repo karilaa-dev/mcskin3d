@@ -1,3 +1,10 @@
+Version 1.7.2
+- Combined skin and cape workspace with shared chronological undo and redo
+- Continuous elytra spread slider and corrected accessory attachment
+- Closely stacked 2D textures with a small non-paintable gap
+- Verified read-only official capes, newest first, embedded in the executable
+- Portable package keeps the existing file layout and includes .NET
+
 Version 1.6.0.600
 - Fixed a major issue with 3d picking algorithm
 

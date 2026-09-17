@@ -31,6 +31,23 @@ namespace MCSkin3D.Services
 
 		public async Task<byte[]> DownloadSkinAsync(string name)
 		{
+			ValidateName(name);
+			using var timeout = new CancellationTokenSource(RequestTimeout);
+			try
+			{
+				using var textures = await GetProfileTexturesAsync(name, timeout.Token).ConfigureAwait(false);
+				if (!textures.RootElement.GetProperty("textures").TryGetProperty("SKIN", out JsonElement skin))
+					throw new InvalidDataException("This Minecraft profile does not have a custom skin.");
+				byte[] bytes = await GetBytesAsync(GetTextureUri(RequiredString(skin, "url")), timeout.Token).ConfigureAwait(false);
+				ValidateSkin(bytes);
+				return bytes;
+			}
+			catch (JsonException exception) { throw new InvalidDataException("Minecraft returned invalid skin information.", exception); }
+			catch (FormatException exception) { throw new InvalidDataException("Minecraft returned invalid encoded skin information.", exception); }
+		}
+
+		private static void ValidateName(string name)
+		{
 			if (string.IsNullOrEmpty(name) || name.Length > 16)
 				throw new ArgumentException("A Minecraft username must contain 1 to 16 letters, numbers, or underscores.", nameof(name));
 			foreach (char character in name)
@@ -40,46 +57,36 @@ namespace MCSkin3D.Services
 					throw new ArgumentException("A Minecraft username must contain 1 to 16 letters, numbers, or underscores.", nameof(name));
 			}
 
-			using var timeout = new CancellationTokenSource(RequestTimeout);
-			try
+		}
+
+		private async Task<JsonDocument> GetProfileTexturesAsync(string name, CancellationToken cancellationToken)
+		{
+			using var profile = JsonDocument.Parse(await GetBytesAsync(
+				new Uri("https://api.mojang.com/users/profiles/minecraft/" + name), cancellationToken).ConfigureAwait(false));
+			string id = RequiredString(profile.RootElement, "id");
+			if (id.Length != 32 || !IsHex(id))
+				throw new InvalidDataException("Minecraft returned an invalid profile ID.");
+
+			using var session = JsonDocument.Parse(await GetBytesAsync(
+				new Uri("https://sessionserver.mojang.com/session/minecraft/profile/" + id), cancellationToken).ConfigureAwait(false));
+			if (session.RootElement.ValueKind != JsonValueKind.Object ||
+				!session.RootElement.TryGetProperty("properties", out JsonElement properties) || properties.ValueKind != JsonValueKind.Array)
+				throw new InvalidDataException("Minecraft did not return this profile's skin properties.");
+
+			foreach (JsonElement property in properties.EnumerateArray())
 			{
-				using var profile = JsonDocument.Parse(await GetBytesAsync(
-					new Uri("https://api.mojang.com/users/profiles/minecraft/" + name), timeout.Token).ConfigureAwait(false));
-				string id = RequiredString(profile.RootElement, "id");
-				if (id.Length != 32 || !IsHex(id))
-					throw new InvalidDataException("Minecraft returned an invalid profile ID.");
-
-				using var session = JsonDocument.Parse(await GetBytesAsync(
-					new Uri("https://sessionserver.mojang.com/session/minecraft/profile/" + id), timeout.Token).ConfigureAwait(false));
-				if (session.RootElement.ValueKind != JsonValueKind.Object ||
-					!session.RootElement.TryGetProperty("properties", out JsonElement properties) || properties.ValueKind != JsonValueKind.Array)
-					throw new InvalidDataException("Minecraft did not return this profile's skin properties.");
-
-				foreach (JsonElement property in properties.EnumerateArray())
+				if (RequiredString(property, "name") != "textures")
+					continue;
+				var textures = JsonDocument.Parse(Convert.FromBase64String(RequiredString(property, "value")));
+				if (textures.RootElement.ValueKind != JsonValueKind.Object ||
+					!textures.RootElement.TryGetProperty("textures", out JsonElement textureSet) || textureSet.ValueKind != JsonValueKind.Object)
 				{
-					if (RequiredString(property, "name") != "textures")
-						continue;
-					using var textures = JsonDocument.Parse(Convert.FromBase64String(RequiredString(property, "value")));
-					if (textures.RootElement.ValueKind != JsonValueKind.Object ||
-						!textures.RootElement.TryGetProperty("textures", out JsonElement textureSet) || textureSet.ValueKind != JsonValueKind.Object ||
-						!textureSet.TryGetProperty("SKIN", out JsonElement skin))
-						throw new InvalidDataException("This Minecraft profile does not have a custom skin.");
-
-					Uri textureUri = GetTextureUri(RequiredString(skin, "url"));
-					byte[] bytes = await GetBytesAsync(textureUri, timeout.Token).ConfigureAwait(false);
-					ValidateSkin(bytes);
-					return bytes;
+					textures.Dispose();
+					throw new InvalidDataException("Minecraft returned incomplete texture information.");
 				}
-				throw new InvalidDataException("This Minecraft profile does not have a custom skin.");
+				return textures;
 			}
-			catch (JsonException exception)
-			{
-				throw new InvalidDataException("Minecraft returned invalid skin information.", exception);
-			}
-			catch (FormatException exception)
-			{
-				throw new InvalidDataException("Minecraft returned invalid encoded skin information.", exception);
-			}
+			throw new InvalidDataException("Minecraft returned no texture properties for this profile.");
 		}
 
 		private static string RequiredString(JsonElement element, string name)

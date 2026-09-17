@@ -16,7 +16,7 @@ using MCSkin3D.Swatches;
 using OpenTK.Graphics.OpenGL;
 using Paril.OpenGL;
 
-internal static class Program
+internal static partial class Program
 {
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private static int failures, checks;
@@ -77,6 +77,8 @@ internal static class Program
                 Run("Tool selection, camera and model visibility", ToolsAndModel);
                 Run("Loaded swatches, selection and persistence", Swatches);
                 Run("Clone and import PNG into skin tree", ImportClone);
+                Run("Combined workspace painting, swaps, poses and global undo", CombinedWorkspace);
+                Run("Official cape rendering, pixel protection and visibility", OfficialCapePreview);
                 // This check pumps native messages and can import the desktop's live
                 // modifier-key state; keep it after deterministic painting checks.
                 Run("Automatic updates do not block the editor", () => StartupUpdateChecks.Run(editor, Check));
@@ -237,9 +239,9 @@ internal static class Program
         Call(editor, "rendererControl_MouseDown", editor.Renderer, click);
         Call(editor, "rendererControl_MouseUp", editor.Renderer, click);
         int edited = ReadPixel(skin, pixel);
-        Check(edited != original && skin.Dirty && skin.Undo.CanUndo, $"Real pencil stroke writes pixel and creates undo record (before={original:X8}, after={edited:X8}, dirty={skin.Dirty}, undo={skin.Undo.CanUndo}, modifiers={Control.ModifierKeys})");
+        Check(edited != original && skin.Dirty && editor.History.CanUndo, $"Real pencil stroke writes pixel and creates undo record (before={original:X8}, after={edited:X8}, dirty={skin.Dirty}, undo={editor.History.CanUndo}, modifiers={Control.ModifierKeys})");
         Field<ToolStripMenuItem>(editor, "undoToolStripMenuItem").PerformClick();
-        Check(ReadPixel(skin, pixel) == original && skin.Undo.CanRedo, "Undo restores original GPU pixel");
+        Check(ReadPixel(skin, pixel) == original && editor.History.CanRedo, "Undo restores original GPU pixel");
         Field<ToolStripMenuItem>(editor, "redoToolStripMenuItem").PerformClick();
         Check(ReadPixel(skin, pixel) == edited, "Redo restores painted GPU pixel");
         Field<ToolStripMenuItem>(editor, "saveToolStripMenuItem").PerformClick();
@@ -315,8 +317,8 @@ internal static class Program
         editor.ColorPanel.SelectedColor = ColorManager.FromRGBA(82, 141, 239, 255);
         StrokeWith<PencilTool>();
         int edited = ReadPixel(skin, strokePixel);
-        Check(edited != original && skin.Dirty && skin.Undo.CanUndo, "Skin has unsaved paint before move");
-        var undo = skin.Undo;
+        Check(edited != original && skin.Dirty && editor.History.CanUndo, "Skin has unsaved paint before move");
+        var undo = editor.History;
         var texture = skin.GLImage;
         string source = skin.File.FullName;
         byte[] diskBefore = File.ReadAllBytes(source);
@@ -324,10 +326,10 @@ internal static class Program
         string destination = session.CreateFolder(session.RootPath, "Moved by integration");
         session.Move(destination, "Renamed edited skin");
         Check(!File.Exists(source) && skin.File.Exists && File.ReadAllBytes(skin.File.FullName).SequenceEqual(diskBefore), "Move preserves saved bytes until user saves");
-        Check(tree.SelectedNode == skin && Field<Skin>(editor, "_lastSkin") == skin && skin.Dirty && ReferenceEquals(skin.Undo, undo) && ReferenceEquals(skin.GLImage, texture), "Move retains selection, dirty state, undo and loaded texture");
+        Check(tree.SelectedNode == skin && Field<Skin>(editor, "_lastSkin") == skin && skin.Dirty && ReferenceEquals(editor.History, undo) && ReferenceEquals(skin.GLImage, texture), "Move retains selection, dirty state, undo and loaded texture");
         Check(ReadPixel(skin, strokePixel) == edited, "Unsaved GPU pixels survive move");
         Call(editor, "PerformUndo");
-        Check(ReadPixel(skin, strokePixel) == original && skin.Undo.CanRedo, "Undo still restores pixel after move");
+        Check(ReadPixel(skin, strokePixel) == original && editor.History.CanRedo, "Undo still restores pixel after move");
         Call(editor, "PerformRedo");
         Check(ReadPixel(skin, strokePixel) == edited, "Redo still restores edited pixel after move");
         Call(editor, "PerformSave");

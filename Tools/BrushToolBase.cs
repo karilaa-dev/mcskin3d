@@ -90,7 +90,7 @@ namespace MCSkin3D
 		{
 			if (_undo.Points.Count != 0)
 			{
-				skin.Undo.AddBuffer(_undo);
+				Editor.MainForm.RecordEdit(skin, _undo);
 				Editor.MainForm.CheckUndo();
 				_oldPixel = new Point(-1, -1);
 			}

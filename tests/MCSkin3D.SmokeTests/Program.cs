@@ -48,6 +48,9 @@ internal static class Program
         Run("PNG pixels and skin metadata survive save/reload", PngRoundTrip);
         Run("Skin moves preserve files, selection and library boundaries", () => SkinMoveChecks.Run(Check, Scratch));
         Run("Minecraft skin download resolves current endpoints and validates responses offline", () => SkinDownloadChecks.Run(Check));
+        Run("Editor-wide chronological history", () => WorkspaceChecks.History(Check));
+        Run("Combined preview geometry, picking and native layout", () => WorkspaceChecks.GeometryAndPicking(Check));
+        Run("Official cape assets, chronology, read-only protection and gallery", () => OfficialCapesChecks.Run(Check));
         if (Array.IndexOf(args, "--startup") >= 0)
             Run("OpenTK context and legacy rendering before editor becomes visible", HiddenOpenGlStartup);
         try { Directory.Delete(Scratch, true); }
