@@ -72,4 +72,8 @@ To measure picking and enforce its allocation budget, add `--benchmark`. Each of
 dotnet run --project tests/MCSkin3D.IntegrationTests -c Release -- --benchmark
 ```
 
+Use `--benchmark-render` to measure steady 3D layer frames on synthetic 64x64 and 128x128 skins. Each case warms up for 20 frames, then measures 200 frames with GPU completion and no buffer swaps. The log separates total frame time, mesh preparation, submission and managed allocations. It retains a rendered PNG for each case. Run under the same viewport, resolution, antialiasing and driver when comparing timings.
+
+Texture and rendering checks also verify cache invalidation after uploads, bitmap reloads, resizing, hover previews, settings changes and document switches. Unchanged frames reuse textures and geometry; RGB-only changes preserve geometry, while alpha changes refresh both geometry and transparency.
+
 Official cape smoke coverage decodes every embedded asset, verifies source checksums and newest-first chronology, excludes developer API tests, blocks editing and history mutation, checks that the cape dropdown contains only custom files, and renders the full gallery at normal and compact sizes. Accessory checks compare every vertex with scalar Minecraft transforms at both endpoints and halfway spread, exercise the native slider, and verify attachment pivots and compact 2D picking. Graphics integration also captures official capes in each view and pose, attempts brush/fill/stamp strokes on a reference, checks every reference pixel remains unchanged, and verifies clearing an active reference safely. Portable publishing rejects loose official-cape folders.

@@ -1,7 +1,11 @@
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
+using MCSkin3D;
+using MCSkin3D.Models;
 using OpenTK.Graphics.OpenGL4;
 using Paril.OpenGL;
 using BitmapPixelFormat = System.Drawing.Imaging.PixelFormat;
@@ -76,6 +80,82 @@ internal static class TextureChecks
         allocated = GC.GetAllocatedBytesForCurrentThread() - allocated;
         check(allocated < 8 * 1024, "512x512 uploads avoid megabyte managed staging buffers");
         check(GL.GetError() == ErrorCode.NoError, "Texture format and lifecycle checks leave no OpenGL error");
+        PreviewMetadata(check);
+    }
+
+    private sealed class CountingTexture : TextureGL
+    {
+        public int Reads;
+        public override void Get<T>(T[] array) { Reads++; base.Get(array); }
+        public override void Get(IntPtr array) { Reads++; base.Get(array); }
+    }
+
+    private static void PreviewMetadata(Action<bool, string> check)
+    {
+        bool enabled = GlobalSettings.SkinLayers3D;
+        var options = SkinLayerOptions.Current;
+        try
+        {
+            GlobalSettings.SkinLayers3D = true;
+            SkinLayerOptions.Defaults.Save();
+            string path = Path.Combine(GlobalSettings.GetDataURI("Models"), "Players", "Alex.xml");
+            var model = new ModelFormatTCN().Load(path); model.File = new FileInfo(path);
+            var skin = new Skin("cache-fixture.png") { Model = model, Size = new Size(64, 64) };
+            var item = new PreviewItem { Document = skin, Model = model };
+            using var texture = new CountingTexture();
+            var pixels = Enumerable.Repeat(new ColorPixel(211, 235, 234, 255).RGBA, 64 * 64).ToArray();
+            texture.Upload(pixels, 64, 64);
+            item.CaptureTexture(texture); item.UpdateSkinLayers();
+            var source = model.Meshes.Single(m => m.Part == ModelPart.Helmet);
+            var mesh = item.SkinLayers[source].Mesh;
+            check(!item.HasTransparency(source), "Opaque metadata initializes from the texture");
+            long version = texture.ContentVersion;
+            texture.SetMipmapping(false); texture.SetRepeat(false);
+            for (int i = 0; i < 10; i++) { item.CaptureTexture(texture); item.UpdateSkinLayers(); }
+            check(texture.Reads == 1 && texture.ContentVersion == version && ReferenceEquals(mesh, item.SkinLayers[source].Mesh),
+                "Unchanged preview metadata reuses geometry without texture readbacks");
+            var pixel = item.SkinLayers[source].PixelFor(item.SkinLayers[source].PixelFaces[0]);
+            int index = pixel.Y * 64 + pixel.X;
+            pixels[index] = new ColorPixel(255, 0, 255, 255).RGBA;
+            texture.Upload(pixels, 64, 64);
+            item.CaptureTexture(texture); item.UpdateSkinLayers();
+            check(texture.Reads == 2 && texture.ContentVersion > version && ReferenceEquals(mesh, item.SkinLayers[source].Mesh),
+                "RGB uploads refresh texture metadata while retaining layer geometry");
+            using (var grabber = new ColorGrabber(texture, 64, 64))
+            {
+                grabber.Load(); grabber[pixel.X, pixel.Y] = new ColorPixel(0, 0, 0, 0); grabber.Save();
+                item.CaptureAlpha(grabber);
+            }
+            int reads = texture.Reads;
+            item.CaptureTexture(texture); item.UpdateSkinLayers();
+            check(texture.Reads == reads && !ReferenceEquals(mesh, item.SkinLayers[source].Mesh) && item.HasTransparency(source),
+                "Prepared preview pixels rebuild erased geometry and transparency without another readback");
+            using var replacement = new CountingTexture();
+            replacement.Upload(pixels, 64, 64);
+            item.CaptureTexture(replacement); item.UpdateSkinLayers();
+            check(replacement.Reads == 1 && !item.HasTransparency(source),
+                "Replacing the texture invalidates cached alpha and transparency");
+            using (var blank = new Bitmap(64, 64)) replacement.Load(blank);
+            item.CaptureTexture(replacement); item.UpdateSkinLayers();
+            check(item.SkinLayers[source].Mesh.Faces.Count == 0 && item.HasTransparency(source),
+                "Bitmap reload invalidates metadata even when dimensions stay the same");
+            replacement.Upload(pixels, 64, 64);
+            item.CaptureTexture(replacement); item.UpdateSkinLayers();
+            mesh = item.SkinLayers[source].Mesh; reads = replacement.Reads;
+            (SkinLayerOptions.Defaults with { HeadSize = 1.2f }).Save();
+            item.CaptureTexture(replacement); item.UpdateSkinLayers();
+            check(!ReferenceEquals(mesh, item.SkinLayers[source].Mesh) && replacement.Reads == reads,
+                "Geometry settings invalidate cached layers without reading unchanged pixels");
+            GlobalSettings.SkinLayers3D = false; item.UpdateSkinLayers();
+            GlobalSettings.SkinLayers3D = true; item.UpdateSkinLayers();
+            check(item.SkinLayers.Count == 6, "Re-enabling layers rebuilds cleared geometry from cached alpha");
+            skin.Size = new Size(128, 128);
+            replacement.Upload(new int[128 * 128], 128, 128);
+            item.CaptureTexture(replacement); item.UpdateSkinLayers();
+            check(item.Alpha.Length == 128 * 128 && item.SkinLayers[source].Mesh.Faces.Count == 0,
+                "Texture resize refreshes alpha dimensions and layer geometry");
+        }
+        finally { GlobalSettings.SkinLayers3D = enabled; options.Save(); }
     }
 
     private static void Fill(Bitmap bitmap)

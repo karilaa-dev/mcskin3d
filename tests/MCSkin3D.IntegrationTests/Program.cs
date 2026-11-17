@@ -67,7 +67,8 @@ internal static partial class Program
                 timer.Stop();
                 using var keyboardState = new IsolatedKeyboardState();
                 Run("Real splash/application startup", Startup);
-                if (args.Contains("--render-quality")) Run("Minecraft colors, resolution and antialiasing", RenderQuality);
+                if (args.Contains("--benchmark-render")) Run("3D layer rendering performance", BenchmarkLayerRendering);
+                else if (args.Contains("--render-quality")) Run("Minecraft colors, resolution and antialiasing", RenderQuality);
                 else
                 {
                     if (args.Contains("--benchmark")) Run("Picking performance and deterministic results", BenchmarkPicking);

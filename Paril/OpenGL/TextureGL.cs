@@ -118,6 +118,7 @@ namespace Paril.OpenGL
 			{
 				_width = width;
 				_height = height;
+				ContentVersion++;
 			}
 		}
 
@@ -151,6 +152,7 @@ namespace Paril.OpenGL
 			{
 				_width = width;
 				_height = height;
+				ContentVersion++;
 			}
 		}
 

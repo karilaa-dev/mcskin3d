@@ -11,6 +11,66 @@ using Paril.OpenGL;
 
 internal static partial class Program
 {
+    private static void BenchmarkLayerRendering()
+    {
+        var tree = Field<TreeView>(editor, "treeView1");
+        var original = Field<Skin>(editor, "_lastSkin");
+        var rendering = PreviewRenderOptions.Current;
+        bool layers = GlobalSettings.SkinLayers3D;
+        bool benchmark = GlobalSettings.RenderBenchmark;
+        bool screenshot = Field<bool>(editor, "_screenshotMode");
+        var paint = (Action<object, PaintEventArgs>)typeof(Editor).GetMethod("rendererControl_Paint", Private)
+            .CreateDelegate(typeof(Action<object, PaintEventArgs>), editor);
+        try
+        {
+            PreviewRenderOptions.Defaults.Save();
+            Field<List<ToolIndex>>(editor, "_tools").Single(t => t.Tool is CameraTool).MenuItem.PerformClick();
+            Call(editor, "SetViewMode", ViewMode.Perspective);
+            typeof(Editor).GetField("_screenshotMode", Private).SetValue(editor, true);
+            GlobalSettings.RenderBenchmark = true;
+            foreach (int size in new[] { 64, 128 })
+            {
+                var skin = WorkspaceFixture(original, "render-benchmark-" + size, "Players/Alex", size, size, Color.CornflowerBlue);
+                using (var image = new Bitmap(size, size))
+                {
+                    using (var graphics = Graphics.FromImage(image)) graphics.Clear(Color.CornflowerBlue);
+                    foreach (var mesh in skin.Model.Meshes.Where(m => m.IsArmor))
+                        foreach (var face in mesh.Faces)
+                        {
+                            var rect = face.TexCoordsToInteger(size, size);
+                            for (int y = rect.Top; y < rect.Bottom; ++y)
+                                for (int x = rect.Left; x < rect.Right; ++x)
+                                    image.SetPixel(x, y, (x + y) % 3 == 0 ? Color.Coral : (x + y) % 7 == 0 ? Color.FromArgb(128, Color.White) : Color.Transparent);
+                        }
+                    image.Save(skin.File.FullName);
+                }
+                skin.SetImages(false); tree.SelectedNode = skin;
+                editor.SetSkinLayers3D(true); editor.PerformResetCamera();
+                typeof(Editor).GetField("_screenshotMode", Private).SetValue(editor, true);
+                for (int i = 0; i < 20; i++) { paint(editor.Renderer, null); GL.Finish(); }
+                Editor._compileTimer.Reset(); Editor._batchTimer.Reset();
+                long allocated = GC.GetAllocatedBytesForCurrentThread();
+                var timer = System.Diagnostics.Stopwatch.StartNew();
+                const int frames = 200;
+                for (int i = 0; i < frames; i++) { paint(editor.Renderer, null); GL.Finish(); }
+                timer.Stop();
+                allocated = GC.GetAllocatedBytesForCurrentThread() - allocated;
+                Log($"3D layers {size}: {timer.Elapsed.TotalMilliseconds / frames:F3} ms/frame, " +
+                    $"{Editor._compileTimer.Elapsed.TotalMilliseconds / frames:F3} ms preparation, " +
+                    $"{Editor._batchTimer.Elapsed.TotalMilliseconds / frames:F3} ms submission, {allocated / frames} managed bytes/frame");
+                using var frame = (Bitmap)Call(editor, "CopyScreenToBitmap");
+                frame.Save(Path.Combine(scratch, "render-benchmark-" + size + ".png"));
+                Check(GL.GetError() == ErrorCode.NoError, "Benchmark renders without GL errors at size " + size);
+            }
+        }
+        finally
+        {
+            GlobalSettings.RenderBenchmark = benchmark;
+            typeof(Editor).GetField("_screenshotMode", Private).SetValue(editor, screenshot);
+            rendering.Save(); editor.SetSkinLayers3D(layers); tree.SelectedNode = original;
+        }
+    }
+
     private static void RenderQuality()
     {
         var tree = Field<TreeView>(editor, "treeView1");
@@ -68,6 +128,14 @@ internal static partial class Program
             Array.Fill(item.Model.PartsEnabled, true);
             Call(editor, "CalculateMatrices");
             using var native = (Bitmap)Call(editor, "CopyScreenToBitmap");
+            var previewTexture = Field<Texture>(editor, "_previewPaint");
+            long previewVersion = previewTexture.ContentVersion;
+            for (int i = 0; i < 3; i++)
+            {
+                using var repeat = (Bitmap)Call(editor, "CopyScreenToBitmap");
+                Check(FrameDifference(native, repeat, new Rectangle(Point.Empty, native.Size)) == 0 && previewTexture.ContentVersion == previewVersion,
+                    "Steady camera frames reuse the preview texture without changing rendered pixels");
+            }
             var helmet = item.SkinLayers.Values.Single(l => l.Mesh.Part == ModelPart.Helmet);
             CheckHeadColors(native, helmet.Mesh, "Raised skin");
             var face = helmet.Mesh.Faces.Single(f => f.Normal.Z < -.99f);
@@ -102,6 +170,19 @@ internal static partial class Program
             // Tool groups can wrap and resize the viewport; pick in its current layout.
             location = QualityFacePoint(helmet.Mesh, face);
             Check(editor.GetPick(location.X, location.Y, out sourcePixel), "Paint target follows the tool-options layout");
+            typeof(Editor).GetField("_mousePoint", Private).SetValue(editor, location);
+            Call(editor, "SetPreview");
+            using (var hover = new ColorGrabber(previewTexture, skin.Width, skin.Height))
+            {
+                hover.Load();
+                Check(hover[sourcePixel.X, sourcePixel.Y].RGBA == new ColorPixel(255, 0, 255, 255).RGBA &&
+                    ReadDocumentPixel(skin, sourcePixel) == new ColorPixel(211, 235, 234, 255).RGBA,
+                    "Hover preview updates its cached texture without painting the document");
+                typeof(Editor).GetField("_mousePoint", Private).SetValue(editor, new Point(-1, -1));
+                Call(editor, "SetPreview"); hover.Load();
+                Check(hover[sourcePixel.X, sourcePixel.Y].RGBA == new ColorPixel(211, 235, 234, 255).RGBA,
+                    "Leaving the model clears cached hover pixels without a document edit");
+            }
             ClickLayer(location);
             Check(ReadDocumentPixel(skin, sourcePixel) == new ColorPixel(255, 0, 255, 255).RGBA,
                 "Painting with scaled MSAA writes exact RGB to the picked source texel");

@@ -9,6 +9,8 @@ namespace Paril.OpenGL
 	{
 		public abstract int Width { get; }
 		public abstract int Height { get; }
+		// Every successful pixel upload invalidates preview metadata derived from this texture.
+		public long ContentVersion { get; protected set; }
 
 		#region IDisposable Members
 

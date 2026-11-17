@@ -17,6 +17,13 @@ namespace MCSkin3D
         public Model Model;
         public RectangleF Sheet;
         public byte[] Alpha;
+        private Texture _alphaTexture;
+        private long _alphaTextureVersion;
+        private int _alphaWidth, _alphaHeight;
+        private bool _layersDirty = true;
+        private Model _layerModel;
+        private SkinLayerOptions _layerOptions;
+        private readonly Dictionary<Mesh, bool> _transparency = new();
         public readonly Dictionary<Mesh, SkinLayerGeometry> SkinLayers = new();
         public bool UseSkinLayers => GlobalSettings.SkinLayers3D &&
             (Editor.CameraPosition - new Vector3(0, 24, 0)).LengthSquared <= MathF.Pow(SkinLayerOptions.Current.Distance * 16, 2);
@@ -26,25 +33,72 @@ namespace MCSkin3D
             if (!GlobalSettings.SkinLayers3D || Role(Document) != EditingTarget.Skin)
             {
                 SkinLayers.Clear();
+                _layersDirty = true;
                 return;
             }
+            var options = SkinLayerOptions.Current;
+            if (_alphaTexture != null && !_layersDirty && _layerModel == Model && _layerOptions == options) return;
             foreach (var mesh in Model.Meshes)
             {
                 if ((!mesh.IsArmor && mesh.Part != ModelPart.Helmet) || mesh.IsSolid) continue;
-                if (!SkinLayerOptions.Current.Enabled(mesh.Part)) { SkinLayers.Remove(mesh); continue; }
+                if (!options.Enabled(mesh.Part)) { SkinLayers.Remove(mesh); continue; }
                 if (!SkinLayers.TryGetValue(mesh, out var layer))
                     SkinLayers.Add(mesh, layer = new SkinLayerGeometry(mesh));
                 layer.Update(Alpha, Document.Width, Document.Height);
             }
+            _layerModel = Model;
+            _layerOptions = options;
+            _layersDirty = false;
+        }
+
+        public void CaptureTexture(Texture texture)
+        {
+            if (_alphaTexture == texture && _alphaTextureVersion == texture.ContentVersion &&
+                _alphaWidth == Document.Width && _alphaHeight == Document.Height) return;
+            using var pixels = new ColorGrabber(texture, Document.Width, Document.Height);
+            pixels.Load();
+            CaptureAlpha(pixels);
         }
 
         public void CaptureAlpha(ColorGrabber pixels)
         {
             int count = Document.Width * Document.Height;
+            bool changed = Alpha == null || _alphaWidth != Document.Width || _alphaHeight != Document.Height;
             if (Alpha == null || Alpha.Length != count) Alpha = new byte[count];
             for (int y = 0; y < Document.Height; ++y)
                 for (int x = 0; x < Document.Width; ++x)
-                    Alpha[y * Document.Width + x] = pixels[x, y].Alpha;
+                {
+                    int index = y * Document.Width + x;
+                    byte alpha = pixels[x, y].Alpha;
+                    changed |= Alpha[index] != alpha;
+                    Alpha[index] = alpha;
+                }
+            if (changed)
+            {
+                _layersDirty = true;
+                _transparency.Clear();
+            }
+            _alphaTexture = pixels.Texture;
+            _alphaTextureVersion = pixels.Texture.ContentVersion;
+            _alphaWidth = Document.Width;
+            _alphaHeight = Document.Height;
+        }
+
+        public bool HasTransparency(Mesh mesh)
+        {
+            if (mesh.IsSolid) return false;
+            if (_transparency.TryGetValue(mesh, out bool transparent)) return transparent;
+            foreach (var face in mesh.Faces)
+            {
+                var rect = Rectangle.Intersect(face.TexCoordsToInteger(Document.Width, Document.Height),
+                    new Rectangle(0, 0, Document.Width, Document.Height));
+                for (int y = rect.Top; y < rect.Bottom && !transparent; ++y)
+                    for (int x = rect.Left; x < rect.Right; ++x)
+                        if (Alpha[y * Document.Width + x] != 255) { transparent = true; break; }
+                if (transparent) break;
+            }
+            _transparency.Add(mesh, transparent);
+            return transparent;
         }
 
         public bool TransparentAt(Vector2 uv)

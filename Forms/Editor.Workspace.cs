@@ -479,10 +479,7 @@ namespace MCSkin3D
             foreach (var item in _scene)
             {
                 if (item.Document.GLImage == null) item.Document.Create();
-                using var pixels = new ColorGrabber(item.Document == _lastSkin ? GlobalDirtiness.CurrentSkin : item.Document.GLImage,
-                    item.Document.Width, item.Document.Height);
-                pixels.Load();
-                item.CaptureAlpha(pixels);
+                item.CaptureTexture(item.Document == _lastSkin ? GlobalDirtiness.CurrentSkin : item.Document.GLImage);
                 item.UpdateSkinLayers();
             }
         }
@@ -675,50 +672,38 @@ namespace MCSkin3D
 
         private void QueueSceneMeshes(Texture activeTexture)
         {
+            var rendering = PreviewRenderOptions.Current;
             foreach (var item in _scene)
             {
                 var texture = item.Document == _lastSkin ? activeTexture : item.Document.GLImage;
                 if (texture == null) continue;
-                using (var pixels = new ColorGrabber(texture, item.Document.Width, item.Document.Height))
+                item.CaptureTexture(texture);
+                item.UpdateSkinLayers();
+                bool useLayers = item.UseSkinLayers;
+                bool lighting = GlobalSettings.SkinLayers3D && rendering.MinecraftLighting && PreviewItem.Role(item.Document) != null;
+                for (int i = 0; i < item.Model.Meshes.Count; ++i)
                 {
-                    pixels.Load();
-                    if (CombinedEnabled || GlobalSettings.SkinLayers3D) item.CaptureAlpha(pixels);
-                    item.UpdateSkinLayers();
-                    for (int i = 0; i < item.Model.Meshes.Count; ++i)
+                    var mesh = item.Model.Meshes[i];
+                    bool visible = item.Model.PartsEnabled[i];
+                    if (!visible && !GlobalSettings.Ghost) continue;
+                    SkinLayerGeometry layer = null;
+                    if (useLayers && item.SkinLayers.TryGetValue(mesh, out layer))
                     {
-                        var mesh = item.Model.Meshes[i];
-                        bool visible = item.Model.PartsEnabled[i];
-                        if (!visible && !GlobalSettings.Ghost) continue;
-                        SkinLayerGeometry layer = null;
-                        if (item.UseSkinLayers && item.SkinLayers.TryGetValue(mesh, out layer))
-                        {
-                            mesh = layer.Mesh;
-                            mesh.Matrix = item.Model.Meshes[i].Matrix;
-                        }
-                        mesh.Texture = texture;
-                        if (layer == null) mesh.HasTransparency = false;
-                        if (layer == null && !mesh.IsSolid)
-                            foreach (var face in mesh.Faces)
-                            {
-                                var rect = Rectangle.Intersect(face.TexCoordsToInteger(item.Document.Width, item.Document.Height), new Rectangle(0, 0, item.Document.Width, item.Document.Height));
-                                for (int y = rect.Top; y < rect.Bottom && !mesh.HasTransparency; ++y)
-                                    for (int x = rect.Left; x < rect.Right; ++x)
-                                        if (pixels[x, y].Alpha != 255) { mesh.HasTransparency = true; break; }
-                                if (mesh.HasTransparency) break;
-                            }
-                        mesh.LastDrawTransparent = mesh.DrawTransparent;
-                        mesh.DrawTransparent = !visible && GlobalSettings.Ghost;
-                        var rendering = PreviewRenderOptions.Current;
-                        bool lightingChanged = mesh.SetLighting(GlobalSettings.SkinLayers3D && rendering.MinecraftLighting && PreviewItem.Role(item.Document) != null,
-                            rendering.GameBrightness, rendering.LightLevel);
-                        if (mesh.UserData == null)
-                        {
-                            mesh.UserData = MeshRenderer.CreateUserData(mesh);
-                            MeshRenderer.UpdateUserData(mesh);
-                        }
-                        else if (mesh.LastDrawTransparent != mesh.DrawTransparent || lightingChanged) MeshRenderer.UpdateUserData(mesh);
-                        MeshRenderer.AddMesh(mesh);
+                        mesh = layer.Mesh;
+                        mesh.Matrix = item.Model.Meshes[i].Matrix;
                     }
+                    mesh.Texture = texture;
+                    if (layer == null) mesh.HasTransparency = item.HasTransparency(mesh);
+                    mesh.LastDrawTransparent = mesh.DrawTransparent;
+                    mesh.DrawTransparent = !visible && GlobalSettings.Ghost;
+                    bool lightingChanged = mesh.SetLighting(lighting, rendering.GameBrightness, rendering.LightLevel);
+                    if (mesh.UserData == null)
+                    {
+                        mesh.UserData = MeshRenderer.CreateUserData(mesh);
+                        MeshRenderer.UpdateUserData(mesh);
+                    }
+                    else if (mesh.LastDrawTransparent != mesh.DrawTransparent || lightingChanged) MeshRenderer.UpdateUserData(mesh);
+                    MeshRenderer.AddMesh(mesh);
                 }
             }
         }

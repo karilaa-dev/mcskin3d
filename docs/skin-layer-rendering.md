@@ -26,6 +26,8 @@ Resolution defaults to 100% and antialiasing to Off. Higher resolution supersamp
 
 ## Validation
 
+Preview metadata is cached by texture identity, upload version and dimensions. Unchanged frames reuse textures, alpha masks, transparency classifications and layer geometry. Hover previews pass their prepared CPU pixels directly to the layer cache, avoiding a second GPU readback. Alpha edits invalidate affected geometry and transparency; RGB-only edits retain geometry. Settings changes, reloads, resizing and document switches refresh the appropriate caches.
+
 The smoke suite covers Steve, Alex, legacy hats and higher-resolution textures, corner geometry, translucent pixels, UVs, picking, mesh caching, settings persistence and reset. These checks use synthetic textures and require no upstream source or reference downloads.
 
 Graphics checks cover base and raised faces, all 16 light levels, both rendering backends, unlit colors, the lighting toolbar toggle, live resolution/MSAA changes, framebuffer reuse and cleanup, painting and undo, and unchanged 2D views. Run them with:

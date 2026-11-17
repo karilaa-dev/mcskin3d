@@ -332,6 +332,7 @@ internal static class WorkspaceChecks
         public override void Upload(IntPtr array, int width, int height)
         {
             this.width = width; this.height = height; Pixels = new int[width * height]; Marshal.Copy(array, Pixels, 0, Pixels.Length);
+            ContentVersion++;
         }
         public override void Get<T>(T[] array) => throw new NotSupportedException();
         public override void Upload<T>(T[] array, int width, int height) => throw new NotSupportedException();

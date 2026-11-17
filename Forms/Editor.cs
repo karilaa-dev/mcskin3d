@@ -79,6 +79,10 @@ namespace MCSkin3D
 		private bool _mouseIsDown;
 		private Point _mousePoint;
 		private Texture _previewPaint;
+		private Texture _previewSource;
+		private Skin _previewSkin;
+		private long _previewSourceVersion, _previewPaintVersion;
+		private bool _previewHasEdits;
 		private readonly PreviewRenderTarget _previewRenderTarget = new();
 		private int _selectedBackground;
 		private ToolIndex _selectedTool;
@@ -682,28 +686,36 @@ namespace MCSkin3D
 		{
 			if (_lastSkin == null)
 			{
+				_previewSkin = null;
+				_previewSource = null;
 				using (var preview = new ColorGrabber(_previewPaint, 64, 32))
 					preview.Save();
 			}
 			else
 			{
 				Skin skin = _lastSkin;
+				GetPick(_mousePoint.X, _mousePoint.Y, out _pickPosition);
+				var source = GlobalDirtiness.CurrentSkin;
+				// Camera movement and tools without a hover preview need no texture
+				// transfer until an edit, document switch or external upload occurs.
+				bool noPreview = skin.IsReadOnly || _pickPosition.X == -1 ||
+					_selectedTool.Tool is CameraTool || _selectedTool.Tool is DropperTool;
+				if (noPreview && !_previewHasEdits && _previewSkin == skin && _previewSource == source &&
+					_previewSourceVersion == source.ContentVersion && _previewPaintVersion == _previewPaint.ContentVersion) return;
 
-				using (var currentSkin = new ColorGrabber(GlobalDirtiness.CurrentSkin, skin.Width, skin.Height))
+				using (var currentSkin = new ColorGrabber(source, skin.Width, skin.Height))
 				{
-					bool pick = GetPick(_mousePoint.X, _mousePoint.Y, out _pickPosition);
-
 					currentSkin.Load();
-					if (!skin.IsReadOnly && _selectedTool.Tool.RequestPreview(currentSkin, skin, _pickPosition.X, _pickPosition.Y))
-					{
-						currentSkin.Texture = _previewPaint;
-						currentSkin.Save();
-					}
-					else
-					{
-						currentSkin.Texture = _previewPaint;
-						currentSkin.Save();
-					}
+					_previewHasEdits = !skin.IsReadOnly && _selectedTool.Tool.RequestPreview(currentSkin, skin, _pickPosition.X, _pickPosition.Y);
+					currentSkin.Texture = _previewPaint;
+					currentSkin.Save();
+					// Reuse the CPU pixels already prepared for the hover preview.
+					foreach (var item in _scene)
+						if (item.Document == skin) item.CaptureAlpha(currentSkin);
+					_previewSkin = skin;
+					_previewSource = source;
+					_previewSourceVersion = source.ContentVersion;
+					_previewPaintVersion = _previewPaint.ContentVersion;
 				}
 			}
 		}
