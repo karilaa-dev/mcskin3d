@@ -63,6 +63,65 @@ internal static class RendererChecks
         data = mesh.GetUserData<ClientArrayMeshUserData>();
         check(data.VerticeArray.Length == 0 && data.TexCoordArray.Length == 0 && data.IndiceArray.Length == 0 && data.ColorArray.Length == 0,
             "Empty meshes must produce valid empty buffers");
+        LightingAngle(renderer, check);
+    }
+
+    private static void LightingAngle(ClientArrayRenderer renderer, Action<bool, string> check)
+    {
+        foreach (var sample in new[] { (0, 0), (89, 89), (90, 90), (-90, -90), (180, 0), (-180, 0),
+            (207, 27), (-153, 27), (int.MaxValue, -53), (int.MinValue, 52) })
+            check(PreviewRenderOptions.NormalizeLightAngle(sample.Item1) == sample.Item2,
+                "Lighting angle normalization preserves equivalent direction for " + sample.Item1);
+        check(Enumerable.Range(-90, 181).All(angle => PreviewRenderOptions.NormalizeLightAngle(angle) == angle),
+            "The angle control preserves every selectable value including both endpoints");
+        Face Quad(Vector3 a, Vector3 b) => new Face(new[] { Vector3.Zero, a, a + b, b },
+            new[] { Vector2.Zero, Vector2.UnitX, Vector2.One, Vector2.UnitY }, new[] { 0, 1, 2, 3 })
+            { Normal = Vector3.Cross(a, b).Normalized() };
+        var mesh = new Mesh("lighting directions") { Matrix = Matrix4.Identity,
+            Faces = new List<Face> { Quad(Vector3.UnitX, Vector3.UnitY), Quad(Vector3.UnitY, Vector3.UnitZ),
+                Quad(Vector3.UnitX, Vector3.UnitZ), Quad(Vector3.UnitZ, Vector3.UnitX) } };
+        mesh.UserData = renderer.CreateUserData(mesh);
+        var data = mesh.GetUserData<ClientArrayMeshUserData>();
+        var vertices = data.VerticeArray;
+        var uvs = data.TexCoordArray;
+        bool Near(float actual, double expected) => Math.Abs(actual - expected) < .000001;
+        foreach (bool raised in new[] { false, true })
+        {
+            mesh.IsSkinLayer = raised;
+            mesh.SetLighting(true);
+            renderer.UpdateUserData(mesh);
+            var colors = data.ColorArray;
+            var original = colors.ToArray();
+            check(Near(mesh.FaceBrightness(mesh.Faces[0]), .739549875) && Near(mesh.FaceBrightness(mesh.Faces[1]), .49701425),
+                "Default front and side shading matches vanilla for " + (raised ? "raised" : "regular") + " meshes");
+            check(!mesh.SetLighting(true, lightAngle: 180) && !mesh.SetLighting(true, lightAngle: -180),
+                "Equivalent half-turns retain the exact default colors without invalidating the cache");
+            check(mesh.SetLighting(true, lightAngle: 90), "Changing only the light angle invalidates cached colors");
+            renderer.UpdateUserData(mesh);
+            check(Near(mesh.FaceBrightness(mesh.Faces[0]), .49701425) && Near(mesh.FaceBrightness(mesh.Faces[1]), .739549875),
+                "A quarter-turn exchanges front and side lighting");
+            check(mesh.FaceBrightness(mesh.Faces[2]) == 1 && mesh.FaceBrightness(mesh.Faces[3]) == .4f,
+                "Horizontal light rotation preserves top and bottom lighting");
+            check(!mesh.SetLighting(true, lightAngle: 90) && ReferenceEquals(colors, data.ColorArray) &&
+                ReferenceEquals(vertices, data.VerticeArray) && ReferenceEquals(uvs, data.TexCoordArray),
+                "Unchanged angles reuse lighting, geometry and texture-coordinate buffers");
+            check(!mesh.SetLighting(true, lightAngle: -90), "The two quarter-turn endpoints share one cached lighting direction");
+            mesh.SetLighting(true, lightLevel: 8, lightAngle: 90);
+            check(Near(mesh.FaceBrightness(mesh.Faces[0]), .49701425 * 179 / 255),
+                "Angle shading still multiplies Minecraft world-light brightness");
+            mesh.SetLighting(true);
+            renderer.UpdateUserData(mesh);
+            check(original.SequenceEqual(data.ColorArray), "Restoring the default angle exactly restores original vertex colors");
+        }
+        mesh.SetLighting(true, lightAngle: 90);
+        mesh.DrawTransparent = true;
+        renderer.UpdateUserData(mesh);
+        check(data.ColorArray.Where((_, i) => i % 4 == 3).All(alpha => alpha == .25f), "Angle changes preserve ghost opacity");
+        mesh.SetLighting(false, lightAngle: -47);
+        renderer.UpdateUserData(mesh);
+        check(ColorsMatch(data.ColorArray, .25f), "Disabled lighting preserves texture colors at any angle");
+        mesh.SetLighting(true, lightAngle: 999);
+        check(!mesh.SetLighting(true, lightAngle: -81), "Rendering normalizes saved angles before comparing cached state");
     }
 
     private static bool ColorsMatch(float[] colors, float alpha)

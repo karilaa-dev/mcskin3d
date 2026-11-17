@@ -453,6 +453,26 @@ namespace MCSkin3D.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap skin_layers {
+            get {
+                object obj = ResourceManager.GetObject("skin_layers", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap minecraft_lighting {
+            get {
+                object obj = ResourceManager.GetObject("minecraft_lighting", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap hybrid {
             get {
                 object obj = ResourceManager.GetObject("hybrid", resourceCulture);

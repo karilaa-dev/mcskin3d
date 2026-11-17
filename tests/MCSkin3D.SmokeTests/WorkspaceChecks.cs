@@ -56,12 +56,14 @@ internal static class WorkspaceChecks
     public static void GeometryAndPicking(Action<bool, string> check)
     {
         string previousDirectory = Directory.GetCurrentDirectory();
+        bool lighting = GlobalSettings.MinecraftLighting;
         try
         {
+            GlobalSettings.MinecraftLighting = false;
             Directory.SetCurrentDirectory(AppContext.BaseDirectory);
             GeometryAndPickingCore(check);
         }
-        finally { Directory.SetCurrentDirectory(previousDirectory); }
+        finally { GlobalSettings.MinecraftLighting = lighting; Directory.SetCurrentDirectory(previousDirectory); }
     }
 
     private static void GeometryAndPickingCore(Action<bool, string> check)
@@ -272,7 +274,7 @@ internal static class WorkspaceChecks
             "The real scene queue routes each model to its own live texture");
         check(capeModel.Meshes[0].HasTransparency, "The scene queue detects transparency using the accessory's effective UVs");
         check(scene.SelectMany(s => s.Model.Meshes).All(m => m.GetUserData<ClientArrayMeshUserData>().ColorArray.All(c => c == 1f)),
-            "New preview meshes initialize visible vertex colors before their first draw");
+            "New unlit preview meshes initialize white vertex colors before their first draw");
         capeModel.PartsEnabled[0] = false;
         GlobalSettings.Ghost = true;
         typeof(Editor).GetMethod("QueueSceneMeshes", Private).Invoke(editor, new object[] { skinTexture });

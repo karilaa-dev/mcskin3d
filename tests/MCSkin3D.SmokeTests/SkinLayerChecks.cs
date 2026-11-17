@@ -111,28 +111,27 @@ internal static class SkinLayerChecks
         try
         {
             var custom = new SkinLayerOptions(1.3f, 1.22f, 1.2f, false, 28, 21);
-            var customRendering = new PreviewRenderOptions(175, 4, false, 75, 6);
+            var customRendering = new PreviewRenderOptions(175, 4, false, 6, -45, false);
             var renderingSnapshot = PreviewRenderOptions.Current;
             using (var dialog = new MCSkin3D.Forms.SkinLayerSettingsDialog(custom, customRendering))
             {
                 check(dialog.Options == custom, "Advanced settings initialize every control from saved values");
                 check(dialog.Rendering == customRendering && dialog.Controls.Find("fastRender", true).Length == 0,
                     "Rendering quality controls replace the Fast rendering checkbox");
-                check(dialog.Controls.Find("brightness", true).Length == 0, "Brightness is moved out of the settings dialog");
+                check(new[] { "brightness", "minecraftLighting", "gameBrightness", "lightDirection", "lightAngleSlider" }
+                    .All(name => dialog.Controls.Find(name, true).Length == 0),
+                    "3D Skin Layers settings contain no Minecraft lighting controls");
                 dialog.Show(); dialog.PerformLayout();
-                check(dialog.Controls.Find("lightDirection", true).Length == 0, "Custom light angle is removed for vanilla lighting");
-                var gamma = (TrackBar)dialog.Controls.Find("gameBrightness", true).Single();
-                var lighting = (CheckBox)dialog.Controls.Find("minecraftLighting", true).Single();
-                check(!gamma.Visible, "Game brightness is hidden when directional shading is off");
-                lighting.Checked = true;
-                check(gamma.Visible && gamma.Value == 75, "Enabling shading restores the retained game brightness");
-                lighting.Checked = false;
-                check(!gamma.Visible, "Turning shading off hides its game brightness slider immediately");
+                ((TrackBar)dialog.Controls.Find("renderResolution", true).Single()).Value = 125;
+                ((ComboBox)dialog.Controls.Find("antialiasing", true).Single()).SelectedIndex = 1;
+                check(dialog.Rendering == (customRendering with { Resolution = 125, Samples = 2 }),
+                    "Changing layer render quality preserves every Minecraft lighting setting");
                 typeof(Button).GetMethod("OnClick", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(
                     dialog.Controls.Find("resetDefaults", true).Single(), new object[] { EventArgs.Empty });
                 check(dialog.Options == SkinLayerOptions.Defaults, "Reset restores all mod defaults");
-                check(dialog.Rendering == PreviewRenderOptions.Defaults, "Reset restores resolution, AA and lighting defaults");
-                check(gamma.Visible, "Reset re-enables shading and shows the game brightness slider");
+                check(dialog.Rendering == (customRendering with { Resolution = PreviewRenderOptions.Defaults.Resolution,
+                    Samples = PreviewRenderOptions.Defaults.Samples }),
+                    "Layer Reset restores resolution and AA while preserving lighting enabled, world light, angle and surroundings");
                 check(SkinLayerOptions.Current == snapshot, "Dialog reset and cancel do not mutate application settings");
                 check(PreviewRenderOptions.Current == renderingSnapshot, "Quality controls remain local until Apply");
                 dialog.Show(); dialog.PerformLayout();
@@ -143,23 +142,46 @@ internal static class SkinLayerChecks
                     "Settings footer remains visible after Reset: " + applyBounds + " in " + dialog.ClientRectangle);
                 dialog.DrawToBitmap(image, new Rectangle(Point.Empty, image.Size));
                 image.Save(Path.Combine(AppContext.BaseDirectory, "skin-layer-settings.png"));
-                dialog.Hide();
+                ((Button)dialog.CancelButton).PerformClick();
+                check(dialog.DialogResult == DialogResult.Cancel && PreviewRenderOptions.Current == renderingSnapshot,
+                    "Cancel leaves all saved rendering and lighting settings unchanged");
+            }
+            using (var dialog = new MCSkin3D.Forms.SkinLayerSettingsDialog(custom, customRendering))
+            {
+                ((TrackBar)dialog.Controls.Find("renderResolution", true).Single()).Value = 150;
+                ((ComboBox)dialog.Controls.Find("antialiasing", true).Single()).SelectedIndex = 3;
+                dialog.Rendering.Save();
+                check(PreviewRenderOptions.Current == (customRendering with { Resolution = 150, Samples = 8 }),
+                    "Applying layer quality settings preserves the input lighting snapshot");
             }
             var settings = new Paril.Settings.Settings(); settings.Structures.Add(typeof(GlobalSettings));
             settings.LoadDefaults();
             check(PreviewRenderOptions.Current.LightLevel == 8, "World light defaults to the nearest midpoint, level 8");
+            check(PreviewRenderOptions.Current.LightAngle == 0, "Light angle defaults to the original Minecraft directions");
+            check(PreviewRenderOptions.Current.LightSurroundings, "Surroundings share Minecraft lighting by default");
             custom.Save(); customRendering.Save();
             string path = Path.Combine(scratch, "advanced-layer-settings.ini"); settings.Save(path);
             SkinLayerOptions.Defaults.Save(); PreviewRenderOptions.Defaults.Save(); settings.Load(path);
             check(SkinLayerOptions.Current == custom, "All advanced rendering settings survive save and reload");
             check(PreviewRenderOptions.Current == customRendering, "Resolution, AA and lighting survive save and reload");
-            check(new PreviewRenderOptions(-1, 16, true, 999).Validated() == new PreviewRenderOptions(50, 8, true, 100),
+            check(new PreviewRenderOptions(-1, 16, true, 999).Validated() == new PreviewRenderOptions(50, 8, true, 15),
                 "Out-of-range rendering settings are bounded");
             check((customRendering with { LightLevel = -10 }).Validated().LightLevel == 0 &&
                 (customRendering with { LightLevel = 500 }).Validated().LightLevel == 15, "World light is bounded to Minecraft's 16 levels");
-            File.WriteAllText(path, "[GlobalSettings]\r\nPreviewBrightness=47\r\nPreviewLightDirection=-90\r\n");
+            check((customRendering with { LightAngle = -999 }).Validated().LightAngle == 81 &&
+                (customRendering with { LightAngle = 999 }).Validated().LightAngle == -81,
+                "Saved angles wrap to the equivalent direction within the selectable half-turn range");
+            File.WriteAllText(path, "[GlobalSettings]\r\nPreviewBrightness=47\r\nPreviewLightDirection=-90\r\nPreviewGameBrightness=0\r\n");
             settings.Load(path);
-            check(PreviewRenderOptions.Current.LightLevel == 8 && PreviewRenderOptions.Current.GameBrightness == 100, "Old fill percentages cannot be misread as world-light levels");
+            check(PreviewRenderOptions.Current == PreviewRenderOptions.Defaults,
+                "Obsolete fill percentages, light direction and game brightness settings leave the lighting defaults intact");
+            foreach (int oldAngle in new[] { -180, 180, -90, 90 })
+            {
+                File.WriteAllText(path, "[GlobalSettings]\r\nPreviewLightAngle=" + oldAngle + "\r\n");
+                settings.Load(path);
+                check(PreviewRenderOptions.Current.LightAngle == (Math.Abs(oldAngle) == 180 ? 0 : oldAngle),
+                    "Existing saved angle " + oldAngle + " retains its equivalent lighting direction");
+            }
             custom.Save(); customRendering.Save();
             var model = new ModelFormatTCN().Load(Path.Combine(AppContext.BaseDirectory, "Models", "Players", "Alex.xml"));
             var source = model.Meshes.Single(m => m.Part == ModelPart.Helmet);

@@ -43,9 +43,15 @@ namespace MCSkin3D
         private bool _layingOutToolOptions;
         private GroupBox _wingSpreadGroup;
         private TrackBar _wingSpreadSlider;
-        private GroupBox _brightnessGroup;
+        private FlowLayoutPanel _lightingOptionsColumn;
+        private Panel _brightnessGroup;
         private TrackBar _brightnessSlider;
         private Label _brightnessValue;
+        private CheckBox _lightSurroundingsToggle;
+        private Panel _lightAngleGroup;
+        private TrackBar _lightAngleSlider;
+        private NumericUpDown _lightAngleValue;
+        private Button _lightAngleDefault;
 
         private sealed class LibraryChoice
         {
@@ -59,9 +65,11 @@ namespace MCSkin3D
             _skinLayersMenu = new ToolStripMenuItem { Name = "skinLayers3DMenu", Checked = GlobalSettings.SkinLayers3D };
             _skinLayersMenu.Click += (_, _) => SetSkinLayers3D(!GlobalSettings.SkinLayers3D);
             viewToolStripMenuItem.DropDownItems.Add(_skinLayersMenu);
-            _skinLayersButton = new ToolStripButton { Name = "skinLayers3DButton", DisplayStyle = ToolStripItemDisplayStyle.Text, Overflow = ToolStripItemOverflow.Never };
+            _skinLayersButton = new ToolStripButton { Name = "skinLayers3DButton", DisplayStyle = ToolStripItemDisplayStyle.Image,
+                Image = Properties.Resources.skin_layers, Overflow = ToolStripItemOverflow.Never };
             _skinLayersButton.Click += (_, _) => SetSkinLayers3D(!GlobalSettings.SkinLayers3D);
-            _minecraftLightingButton = new ToolStripButton { Name = "minecraftLightingButton", DisplayStyle = ToolStripItemDisplayStyle.Text };
+            _minecraftLightingButton = new ToolStripButton { Name = "minecraftLightingButton", DisplayStyle = ToolStripItemDisplayStyle.Image,
+                Image = Properties.Resources.minecraft_lighting, Overflow = ToolStripItemOverflow.Never };
             _minecraftLightingButton.Click += (_, _) => SetMinecraftLighting(!GlobalSettings.MinecraftLighting);
             _skinLayerSettingsMenu = new ToolStripMenuItem { Name = "skinLayerSettingsMenu" };
             _skinLayerSettingsMenu.Click += (_, _) =>
@@ -82,8 +90,8 @@ namespace MCSkin3D
             _combinedButton.Click += (_, _) => SetCombinedMode(!CombinedEnabled);
             _combinedMenu.Click += (_, _) => SetCombinedMode(!CombinedEnabled);
             toolStrip1.Items.Add(new ToolStripSeparator());
-            toolStrip1.Items.Add(_skinLayersButton);
             toolStrip1.Items.Add(_minecraftLightingButton);
+            toolStrip1.Items.Add(_skinLayersButton);
             toolStrip1.Items.Add(_combinedButton);
             viewToolStripMenuItem.DropDownItems.Add(_combinedMenu);
             _officialCapesButton = new ToolStripButton { Name = "officialCapesButton", DisplayStyle = ToolStripItemDisplayStyle.Text };
@@ -125,22 +133,56 @@ namespace MCSkin3D
             wingRow.Controls.Add(_wingSpreadSlider);
             wingRow.Controls.Add(spread);
             _toolOptionsArea.Controls.Add(_wingSpreadGroup);
-            _brightnessGroup = PreviewOptionsGroup("brightnessOptions", out var brightnessRow);
-            var brightnessLabel = new Label { AutoSize = true, Margin = new Padding(4, 7, 0, 0) };
-            _workspaceLabels.Add(brightnessLabel, "SL_LIGHT_LEVEL");
+            _lightingOptionsColumn = new FlowLayoutPanel { Name = "lightingOptionsColumn", AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink, FlowDirection = FlowDirection.TopDown,
+                WrapContents = false, Margin = new Padding(3) };
+            _brightnessGroup = PreviewLightingRow("brightnessOptions", "SL_BRIGHTNESS", out var brightnessRow);
             _brightnessSlider = new TrackBar { Name = "brightnessSlider", Minimum = 0, Maximum = 15,
                 SmallChange = 1, LargeChange = 1, TickStyle = TickStyle.None, AutoSize = false,
-                Size = new Size(140, 28), Margin = new Padding(0) };
-            _brightnessValue = new Label { Name = "brightnessValue", AutoSize = true,
-                MinimumSize = new Size(35, 0), TextAlign = ContentAlignment.MiddleRight, Margin = new Padding(0, 7, 4, 0) };
+                Size = new Size(90, 23), Margin = new Padding(0) };
+            _brightnessValue = new Label { Name = "brightnessValue", AutoSize = true, MinimumSize = new Size(24, 23),
+                TextAlign = ContentAlignment.MiddleRight, Margin = new Padding(0) };
+            _lightSurroundingsToggle = new CheckBox { Name = "lightSurroundingsToggle", AutoSize = true,
+                Margin = new Padding(8, 3, 0, 0) };
+            _lightSurroundingsToggle.CheckedChanged += (_, _) =>
+            {
+                if (!_syncWorkspace) SetPreviewLightSurroundings(_lightSurroundingsToggle.Checked);
+            };
             _brightnessSlider.ValueChanged += (_, _) =>
             {
                 if (!_syncWorkspace) SetPreviewLightLevel(_brightnessSlider.Value);
             };
-            brightnessRow.Controls.Add(brightnessLabel);
             brightnessRow.Controls.Add(_brightnessSlider);
             brightnessRow.Controls.Add(_brightnessValue);
-            _toolOptionsArea.Controls.Add(_brightnessGroup);
+            brightnessRow.Controls.Add(_lightSurroundingsToggle);
+            _lightingOptionsColumn.Controls.Add(_brightnessGroup);
+            _lightAngleGroup = PreviewLightingRow("lightAngleOptions", "SL_LIGHT_ANGLE", out var lightAngleRow);
+            _lightAngleSlider = new TrackBar { Name = "lightAngleSlider", Minimum = -90, Maximum = 90,
+                SmallChange = 1, LargeChange = 15, TickStyle = TickStyle.None, AutoSize = false,
+                Size = new Size(140, 23), Margin = new Padding(0, 0, 4, 0) };
+            _lightAngleValue = new NumericUpDown { Name = "lightAngleValue", Minimum = -90, Maximum = 90,
+                Width = 52, TextAlign = HorizontalAlignment.Right, Margin = new Padding(0, 1, 0, 0) };
+            var degrees = new Label { Name = "lightAngleDegrees", Text = "\u00b0", AutoSize = true,
+                Margin = new Padding(0, 4, 3, 0) };
+            _lightAngleDefault = new Button { Name = "lightAngleDefault", AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink, Margin = new Padding(0) };
+            _workspaceButtons.Add(_lightAngleDefault, "SL_LIGHT_ANGLE_DEFAULT");
+            _lightAngleSlider.ValueChanged += (_, _) =>
+            {
+                if (!_syncWorkspace) SetPreviewLightAngle(_lightAngleSlider.Value);
+            };
+            _lightAngleValue.ValueChanged += (_, _) =>
+            {
+                if (!_syncWorkspace) SetPreviewLightAngle((int)_lightAngleValue.Value);
+            };
+            _lightAngleDefault.Click += (_, _) => SetPreviewLightAngle(PreviewRenderOptions.Defaults.LightAngle);
+            lightAngleRow.Controls.Add(_lightAngleSlider);
+            lightAngleRow.Controls.Add(_lightAngleValue);
+            lightAngleRow.Controls.Add(degrees);
+            lightAngleRow.Controls.Add(_lightAngleDefault);
+            _lightingOptionsColumn.Controls.Add(_lightAngleGroup);
+            _brightnessGroup.Anchor = _lightAngleGroup.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            _toolOptionsArea.Controls.Add(_lightingOptionsColumn);
             InitializeFirstPerson();
             _toolOptionsArea.Layout += (_, _) => UpdateToolOptionsHeight();
             panel4.Controls.Add(_workspaceBar);
@@ -159,6 +201,20 @@ namespace MCSkin3D
             return group;
         }
 
+        private Panel PreviewLightingRow(string name, string labelKey, out FlowLayoutPanel row)
+        {
+            var panel = new Panel { Name = name, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Margin = new Padding(0), Padding = new Padding(3, 2, 3, 2) };
+            row = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Dock = DockStyle.Fill, WrapContents = true, Margin = new Padding(0) };
+            var label = new Label { AutoSize = true, MinimumSize = new Size(85, 23),
+                TextAlign = ContentAlignment.MiddleLeft, Margin = new Padding(0, 0, 4, 0) };
+            _workspaceLabels.Add(label, labelKey);
+            row.Controls.Add(label);
+            panel.Controls.Add(row);
+            return panel;
+        }
+
         private void UpdateToolOptionsHeight()
         {
             if (_toolOptionsArea == null || _layingOutToolOptions) return;
@@ -168,7 +224,7 @@ namespace MCSkin3D
                 splitContainer4.Panel1Collapsed = !_opening;
                 if (!_opening) return;
                 _selectedTool?.OptionsPanel?.ArrangeOptions(_toolOptionsArea.ClientSize.Width);
-                foreach (var group in new[] { _wingSpreadGroup, _brightnessGroup, _firstPersonGroup })
+                foreach (var group in new Control[] { _wingSpreadGroup, _brightnessGroup, _lightAngleGroup, _firstPersonGroup })
                 {
                     if (group == null) continue;
                     var row = group.Controls[0];
@@ -177,6 +233,7 @@ namespace MCSkin3D
                     row.PerformLayout();
                     group.PerformLayout();
                 }
+                _lightingOptionsColumn?.PerformLayout();
                 // FlowLayoutPanel raises Layout before arranging its children, and
                 // nested AutoSize groups underreport wrapped preferred heights.
                 // Measure rows from the groups' actual sizes, including margins.
@@ -276,10 +333,12 @@ namespace MCSkin3D
         {
             if (_workspaceBar == null) return;
             _skinLayersButton.Text = _skinLayersMenu.Text = LanguageLoader.GetStringWithFallback("M_3D_SKIN_LAYERS");
+            _skinLayersButton.AccessibleName = _skinLayersButton.Text;
             _skinLayerSettingsMenu.Text = LanguageLoader.GetStringWithFallback("SL_SETTINGS") + "…";
             _skinLayersButton.ToolTipText = _skinLayersMenu.ToolTipText = LanguageLoader.GetStringWithFallback("T_3D_SKIN_LAYERS");
             _skinLayersButton.Checked = _skinLayersMenu.Checked = GlobalSettings.SkinLayers3D;
             _minecraftLightingButton.Text = LanguageLoader.GetStringWithFallback("M_MINECRAFT_LIGHTING");
+            _minecraftLightingButton.AccessibleName = _minecraftLightingButton.Text;
             _minecraftLightingButton.ToolTipText = LanguageLoader.GetStringWithFallback("T_MINECRAFT_LIGHTING");
             _minecraftLightingButton.Checked = GlobalSettings.MinecraftLighting;
             _combinedButton.Text = _combinedMenu.Text = LanguageLoader.GetStringWithFallback("W_COMBINED");
@@ -293,15 +352,19 @@ namespace MCSkin3D
             _officialCapeLabel.Visible = CombinedEnabled && _workspaceCape?.IsReadOnly == true;
             bool has3DView = _currentViewMode != ViewMode.Orthographic;
             RefreshFirstPersonControls();
-            _minecraftLightingButton.Visible = has3DView && GlobalSettings.SkinLayers3D;
-            bool showBrightness = has3DView && GlobalSettings.SkinLayers3D && GlobalSettings.MinecraftLighting;
+            _minecraftLightingButton.Visible = has3DView;
+            bool showBrightness = has3DView && GlobalSettings.MinecraftLighting;
+            _lightingOptionsColumn.Visible = IsFirstPersonView || showBrightness;
             // Keep the same compact controls and wrapping in first person. Hiding
-            // Brightness would resize the viewport and move the projected hand.
-            _brightnessGroup.MinimumSize = IsFirstPersonView ? Size.Empty : _wingSpreadGroup.MinimumSize;
-            _brightnessGroup.Visible = IsFirstPersonView || showBrightness;
-            _brightnessGroup.Enabled = showBrightness;
+            // Lighting controls would resize the viewport and move the projected hand.
+            foreach (var group in new[] { _brightnessGroup, _lightAngleGroup })
+            {
+                group.Visible = IsFirstPersonView || showBrightness;
+                group.Enabled = showBrightness;
+            }
             _workspaceBar.Visible = CombinedEnabled;
             _brightnessGroup.Text = LanguageLoader.GetStringWithFallback("SL_BRIGHTNESS");
+            _lightAngleGroup.Text = LanguageLoader.GetStringWithFallback("SL_LIGHT_ANGLE");
             _wingSpreadGroup.Text = LanguageLoader.GetStringWithFallback("W_ELYTRA");
             foreach (var pair in _workspaceLabels) pair.Key.Text = LanguageLoader.GetStringWithFallback(pair.Value);
             foreach (var pair in _workspaceButtons) pair.Key.Text = LanguageLoader.GetStringWithFallback(pair.Value);
@@ -316,12 +379,20 @@ namespace MCSkin3D
             _wingSpreadSlider.AccessibleName = LanguageLoader.GetStringWithFallback("W_WING_SPREAD");
             _brightnessSlider.AccessibleName = LanguageLoader.GetStringWithFallback("SL_BRIGHTNESS");
             _brightnessSlider.AccessibleDescription = LanguageLoader.GetStringWithFallback("SL_BRIGHTNESS_HELP");
+            _lightSurroundingsToggle.Text = _lightSurroundingsToggle.AccessibleName = LanguageLoader.GetStringWithFallback("SL_SURROUNDINGS");
+            _lightSurroundingsToggle.AccessibleDescription = LanguageLoader.GetStringWithFallback("SL_SURROUNDINGS_HELP");
+            _lightAngleSlider.AccessibleName = _lightAngleGroup.Text;
+            _lightAngleSlider.AccessibleDescription = LanguageLoader.GetStringWithFallback("SL_LIGHT_ANGLE_HELP");
+            _lightAngleValue.AccessibleName = _lightAngleGroup.Text;
+            _lightAngleValue.AccessibleDescription = _lightAngleSlider.AccessibleDescription;
             _syncWorkspace = true;
             try
             {
                 _wingSpreadSlider.Value = (int)Math.Round(WingSpread * 100);
                 _brightnessSlider.Value = PreviewRenderOptions.Current.LightLevel;
-                _brightnessValue.Text = _brightnessSlider.Value + " / 15";
+                _brightnessValue.Text = _brightnessSlider.Value.ToString();
+                _lightSurroundingsToggle.Checked = PreviewRenderOptions.Current.LightSurroundings;
+                SyncLightAngleControls();
             }
             finally { _syncWorkspace = false; }
             _workspaceBar.ResumeLayout(true);
@@ -355,10 +426,37 @@ namespace MCSkin3D
             try
             {
                 _brightnessSlider.Value = GlobalSettings.PreviewLightLevel;
-                _brightnessValue.Text = _brightnessSlider.Value + " / 15";
+                _brightnessValue.Text = _brightnessSlider.Value.ToString();
             }
             finally { _syncWorkspace = false; }
             Renderer?.Invalidate();
+        }
+
+        internal void SetPreviewLightAngle(int angle)
+        {
+            FinishStroke();
+            GlobalSettings.PreviewLightAngle = PreviewRenderOptions.NormalizeLightAngle(angle);
+            _syncWorkspace = true;
+            try { SyncLightAngleControls(); }
+            finally { _syncWorkspace = false; }
+            Renderer?.Invalidate();
+        }
+
+        internal void SetPreviewLightSurroundings(bool enabled)
+        {
+            FinishStroke();
+            GlobalSettings.PreviewLightSurroundings = enabled;
+            _syncWorkspace = true;
+            try { _lightSurroundingsToggle.Checked = enabled; }
+            finally { _syncWorkspace = false; }
+            Renderer?.Invalidate();
+        }
+
+        private void SyncLightAngleControls()
+        {
+            _lightAngleSlider.Value = PreviewRenderOptions.Current.LightAngle;
+            _lightAngleValue.Value = _lightAngleSlider.Value;
+            _lightAngleDefault.Enabled = _lightAngleSlider.Value != PreviewRenderOptions.Defaults.LightAngle;
         }
 
         public void SetCombinedMode(bool enabled)
@@ -721,7 +819,7 @@ namespace MCSkin3D
                 item.CaptureTexture(texture);
                 item.UpdateSkinLayers();
                 bool useLayers = item.UseSkinLayers;
-                bool lighting = GlobalSettings.SkinLayers3D && rendering.MinecraftLighting && PreviewItem.Role(item.Document) != null;
+                bool lighting = rendering.MinecraftLighting && PreviewItem.Role(item.Document) != null;
                 for (int i = 0; i < item.Model.Meshes.Count; ++i)
                 {
                     var mesh = item.Model.Meshes[i];
@@ -738,7 +836,7 @@ namespace MCSkin3D
                     if (layer == null) mesh.HasTransparency = item.HasTransparency(mesh);
                     mesh.LastDrawTransparent = mesh.DrawTransparent;
                     mesh.DrawTransparent = !visible && GlobalSettings.Ghost;
-                    bool lightingChanged = mesh.SetLighting(lighting, rendering.GameBrightness, rendering.LightLevel);
+                    bool lightingChanged = mesh.SetLighting(lighting, rendering.LightLevel, rendering.LightAngle);
                     if (mesh.UserData == null)
                     {
                         mesh.UserData = MeshRenderer.CreateUserData(mesh);

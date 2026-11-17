@@ -63,11 +63,14 @@ namespace MCSkin3D
 		public static int PreviewResolution { get; set; } = 100;
 		[Savable, DefaultValue(true)]
 		public static bool MinecraftLighting { get; set; } = true;
-		[Savable, DefaultValue(100)]
-		public static int PreviewGameBrightness { get; set; } = 100;
 		// A distinct key keeps old percentage fill values from becoming world-light levels.
 		[Savable, DefaultValue(8)]
 		public static int PreviewLightLevel { get; set; } = 8;
+		// Zero preserves vanilla's directions; ignore the obsolete PreviewLightDirection key.
+		[Savable, DefaultValue(0)]
+		public static int PreviewLightAngle { get; set; }
+		[Savable, DefaultValue(true)]
+		public static bool PreviewLightSurroundings { get; set; } = true;
 
 		[Savable, DefaultValue(false)]
 		public static bool FirstPersonLeftHand { get; set; }

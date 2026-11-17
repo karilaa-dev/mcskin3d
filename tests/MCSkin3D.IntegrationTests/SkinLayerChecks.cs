@@ -44,8 +44,7 @@ internal static partial class Program
         flat.Save(Path.Combine(scratch, "skin-layers-flat.png"));
         raised.Save(Path.Combine(scratch, "skin-layers-raised.png"));
         int changed = 0;
-        // Enabling the mode also reveals the main brightness control, reducing
-        // the viewport height. Compare the shared framebuffer area.
+        Check(flat.Size == raised.Size, "Switching layer modes preserves the viewport size with shared lighting controls");
         for (int y = 0; y < Math.Min(flat.Height, raised.Height); y += 2)
             for (int x = 0; x < Math.Min(flat.Width, raised.Width); x += 2)
                 if (flat.GetPixel(x, y) != raised.GetPixel(x, y)) changed++;

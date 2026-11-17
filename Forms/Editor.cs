@@ -650,7 +650,7 @@ namespace MCSkin3D
 			GL.Disable(EnableCap.Blend);
 		}
 
-		private void DrawPlayer(Texture tex, Skin skin)
+		private void DrawPlayer(Texture tex, Skin skin, float surroundingsBrightness)
 		{
 			TextureGL.Unbind();
 
@@ -667,7 +667,11 @@ namespace MCSkin3D
 			GL.CullFace(TriangleFace.Front);
 
 			if (grassToolStripMenuItem.Checked && _currentViewMode != ViewMode.FirstPerson)
+			{
+				GL.Color4(surroundingsBrightness, surroundingsBrightness, surroundingsBrightness, 1f);
 				DrawSkinnedRectangle(0, GrassY + 0.25f, 0, 1024, 0, 1024, 0, 0, 1024, 1024, _grassTop, 16, 16);
+				GL.Color4(Color.White);
+			}
 
 			GL.Disable(EnableCap.CullFace);
 
@@ -1260,6 +1264,7 @@ namespace MCSkin3D
 
 				SetPreview();
 
+				GL.ClearColor(GlobalSettings.BackgroundColor);
 				GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
 				Skin skin = _lastSkin;
@@ -1395,11 +1400,35 @@ namespace MCSkin3D
 
 		private void DrawPreview3D(Rectangle viewport, Texture texture, Skin skin)
 		{
-			_previewRenderTarget.Begin(viewport.Size, PreviewRenderOptions.Current);
+			var options = PreviewRenderOptions.Current;
+			float surroundingsBrightness = options.MinecraftLighting && options.LightSurroundings
+				? MinecraftPreviewLighting.Daylight(options.LightLevel) : 1;
+			_previewRenderTarget.Begin(viewport.Size, options);
 			try
 			{
+				if (surroundingsBrightness < 1)
+				{
+					// Clear only this 3D viewport; the hybrid texture sheet keeps its own background.
+					var area = _previewRenderTarget.Active
+						? new Rectangle(0, 0, _previewRenderTarget.Width, _previewRenderTarget.Height) : viewport;
+					var background = GlobalSettings.BackgroundColor;
+					GL.PushAttrib(AttribMask.ScissorBit);
+					try
+					{
+						GL.Enable(EnableCap.ScissorTest);
+						GL.Scissor(area.X, area.Y, area.Width, area.Height);
+						GL.ClearColor(background.R / 255f * surroundingsBrightness, background.G / 255f * surroundingsBrightness,
+							background.B / 255f * surroundingsBrightness, background.A / 255f);
+						GL.Clear(ClearBufferMask.ColorBufferBit);
+					}
+					finally
+					{
+						GL.ClearColor(background);
+						GL.PopAttrib();
+					}
+				}
 				Setup3D(viewport);
-				DrawPlayer(texture, skin);
+				DrawPlayer(texture, skin, surroundingsBrightness);
 			}
 			finally { _previewRenderTarget.End(viewport); }
 		}
@@ -3309,6 +3338,8 @@ namespace MCSkin3D
 		private bool CheckKeyShortcut(KeyEventArgs e)
 		{
 			if (!colorPanel.HexTextBox.ContainsFocus &&
+				!(_brightnessGroup?.ContainsFocus ?? false) &&
+				!(_lightAngleGroup?.ContainsFocus ?? false) &&
 				!labelEditTextBox.ContainsFocus &&
 				!colorPanel.SwatchContainer.SwatchRenameTextBoxHasFocus)
 			{

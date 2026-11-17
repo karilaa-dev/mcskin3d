@@ -172,7 +172,7 @@ internal static partial class Program
         var tools = Field<List<ToolIndex>>(editor, "_tools");
         try
         {
-            (rendering with { Resolution = 100, Samples = 0, LightLevel = 15, MinecraftLighting = false }).Save();
+            (rendering with { Resolution = 100, Samples = 0, LightLevel = 15, MinecraftLighting = false, LightAngle = 0 }).Save();
             SetField(editor, "_mousePoint", new Point(-1, -1));
             foreach (var tool in tools.Where(t => t.Tool is CameraTool || t.Tool is FloodFillTool))
                 foreach (int width in new[] { 1100, 620 })
@@ -204,14 +204,16 @@ internal static partial class Program
                     var (location, sourcePixel) = FirstPersonPaintLocation(reference, skin, left);
                     // Change one option per step, covering all four combinations
                     // and returning to the starting state without resizing the app.
-                    foreach (var state in new[] { (Layers: true, Lighting: false), (Layers: true, Lighting: true),
-                        (Layers: false, Lighting: true), (Layers: false, Lighting: false) })
+                    foreach (var state in new[] { (Layers: true, Lighting: false, Angle: 0), (Layers: true, Lighting: true, Angle: 0),
+                        (Layers: true, Lighting: true, Angle: -90), (Layers: false, Lighting: true, Angle: -90),
+                        (Layers: false, Lighting: true, Angle: 0), (Layers: false, Lighting: false, Angle: 0) })
                     {
                         if (GlobalSettings.SkinLayers3D != state.Layers) editor.SetSkinLayers3D(state.Layers);
                         if (GlobalSettings.MinecraftLighting != state.Lighting) Call(editor, "SetMinecraftLighting", state.Lighting);
+                        if (GlobalSettings.PreviewLightAngle != state.Angle) editor.SetPreviewLightAngle(state.Angle);
                         editor.PerformLayout();
                         options.PerformLayout();
-                        string label = name + "-layers-" + state.Layers + "-lighting-" + state.Lighting;
+                        string label = name + "-layers-" + state.Layers + "-lighting-" + state.Lighting + "-angle-" + state.Angle;
                         using var frame = FirstPersonFrame(label);
                         var currentViewport = editor.Renderer.RectangleToScreen(editor.Renderer.ClientRectangle);
                         Check(editor.ClientSize == appSize && currentViewport == viewport && frame.Size == reference.Size,
@@ -230,7 +232,7 @@ internal static partial class Program
                             label + " preserves every hand silhouette pixel and its screen-relative bounds while allowing lighting colors to change");
                         Check(editor.GetPick(location.X, location.Y, out var pixel) && pixel == sourcePixel,
                             label + " keeps the same visible hand point mapped to the same source texel");
-                        Check(GlobalSettings.SkinLayers3D == state.Layers && GlobalSettings.MinecraftLighting == state.Lighting,
+                        Check(GlobalSettings.SkinLayers3D == state.Layers && GlobalSettings.MinecraftLighting == state.Lighting && GlobalSettings.PreviewLightAngle == state.Angle,
                             label + " preserves the requested layer and lighting settings");
                     }
                 }
@@ -331,13 +333,18 @@ internal static partial class Program
         var originalSize = editor.ClientSize;
         var originalTool = Field<ToolIndex>(editor, "_selectedTool");
         bool lighting = GlobalSettings.MinecraftLighting;
+        int lightAngle = GlobalSettings.PreviewLightAngle;
         var options = Field<FlowLayoutPanel>(editor, "_toolOptionsArea");
         var group = Field<GroupBox>(editor, "_firstPersonGroup");
         var hand = Field<ComboBox>(editor, "_firstPersonHand");
+        var angleGroup = Field<Control>(editor, "_lightAngleGroup");
+        var brightnessGroup = Field<Control>(editor, "_brightnessGroup");
+        var lightingColumn = Field<FlowLayoutPanel>(editor, "_lightingOptionsColumn");
         var issues = new List<string>();
         try
         {
             Call(editor, "SetMinecraftLighting", true);
+            editor.SetPreviewLightAngle(-90);
             Field<List<ToolIndex>>(editor, "_tools").Single(t => t.Tool is FloodFillTool).MenuItem.PerformClick();
             foreach (int width in new[] { 1100, 800, 620 })
             {
@@ -352,14 +359,20 @@ internal static partial class Program
                 if (!visible.All(c => options.ClientRectangle.Contains(c.Bounds)) ||
                     visible.SelectMany((c, i) => visible.Skip(i + 1).Select(other => c.Bounds.IntersectsWith(other.Bounds))).Any(overlap => overlap))
                     issues.Add(width + "px tool groups in " + options.ClientSize + ": " + string.Join("; ", visible.Select(c => c.Name + " " + c.Bounds)));
-                foreach (var container in new[] { (Control)group }.Concat(Controls(group)).Where(c => c.Controls.Count > 0))
+                if (brightnessGroup.Left != angleGroup.Left || brightnessGroup.Bottom > angleGroup.Top)
+                    issues.Add(width + "px lighting groups do not remain stacked and left-aligned");
+                foreach (var container in new[] { (Control)group, lightingColumn }
+                    .SelectMany(root => new[] { root }.Concat(Controls(root))).Where(c => c.Controls.Count > 0))
                 {
                     var children = container.Controls.Cast<Control>().Where(c => c.Visible).ToArray();
                     if (!children.All(c => container.ClientRectangle.Contains(c.Bounds)) ||
                         children.SelectMany((c, i) => children.Skip(i + 1).Select(other => c.Bounds.IntersectsWith(other.Bounds))).Any(overlap => overlap))
                         issues.Add(width + "px first-person controls overflow " + container.Name + " " + container.ClientSize);
                 }
-                if (!Field<TrackBar>(editor, "_brightnessSlider").Visible || !group.Visible || !hand.Visible)
+                if (!Field<TrackBar>(editor, "_brightnessSlider").Visible || !group.Visible || !hand.Visible ||
+                    !Field<TrackBar>(editor, "_lightAngleSlider").Visible ||
+                    !Field<NumericUpDown>(editor, "_lightAngleValue").Visible || !Field<CheckBox>(editor, "_lightSurroundingsToggle").Visible ||
+                    !Field<Button>(editor, "_lightAngleDefault").Visible)
                     issues.Add(width + "px is missing a required first-person/brightness control");
                 hand.SelectedIndex = 1;
                 if (!GlobalSettings.FirstPersonLeftHand || hand.Text != "Left hand")
@@ -372,6 +385,7 @@ internal static partial class Program
             editor.ClientSize = originalSize;
             originalTool.MenuItem.PerformClick();
             Call(editor, "SetMinecraftLighting", lighting);
+            editor.SetPreviewLightAngle(lightAngle);
             editor.SetFirstPersonLeftHand(false);
         }
         foreach (string issue in issues) Log("First-person layout: " + issue);

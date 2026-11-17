@@ -14,22 +14,22 @@ namespace MCSkin3D.Forms
         private bool fastRender;
         private readonly TrackBar resolution = Slider("renderResolution", 50, 200, 25);
         private readonly ComboBox antialiasing = new() { Name = "antialiasing", DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
-        private readonly CheckBox lighting = new() { Name = "minecraftLighting", AutoSize = true };
-        private readonly TrackBar gameBrightness = Slider("gameBrightness", 0, 100, 25);
-        private int lightLevel;
+        private readonly PreviewRenderOptions renderingSnapshot;
         private readonly CheckBox[] parts = new CheckBox[6];
         public SkinLayerOptions Options => new((float)pixels.Value, (float)head.Value, (float)body.Value,
             fastRender, (int)distance.Value, PartMask());
-        public PreviewRenderOptions Rendering => new(resolution.Value, new[] { 0, 2, 4, 8 }[antialiasing.SelectedIndex], lighting.Checked, gameBrightness.Value, lightLevel);
+        public PreviewRenderOptions Rendering => renderingSnapshot with
+            { Resolution = resolution.Value, Samples = new[] { 0, 2, 4, 8 }[antialiasing.SelectedIndex] };
         private static string T(string key) => LanguageLoader.GetStringWithFallback(key);
 
         public SkinLayerSettingsDialog(SkinLayerOptions options, PreviewRenderOptions? rendering = null)
         {
+            renderingSnapshot = (rendering ?? PreviewRenderOptions.Current).Validated();
             Text = T("SL_SETTINGS"); Name = "skinLayerSettingsDialog";
             StartPosition = FormStartPosition.CenterParent; ShowInTaskbar = false;
             MinimizeBox = MaximizeBox = false; FormBorderStyle = FormBorderStyle.FixedDialog;
-            AutoScaleMode = AutoScaleMode.Font; ClientSize = new Size(550, 630); Padding = new Padding(16);
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 14 };
+            AutoScaleMode = AutoScaleMode.Font; ClientSize = new Size(550, 490); Padding = new Padding(16);
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 11 };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 105));
             var help = new Label { Text = T("SL_HELP"), AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 12) };
@@ -50,13 +50,6 @@ namespace MCSkin3D.Forms
             antialiasing.AccessibleName = T("SL_ANTIALIASING");
             antialiasing.Items.AddRange(new object[] { T("SL_AA_OFF"), "2x MSAA", "4x MSAA", "8x MSAA" });
             layout.Controls.Add(antialiasing, 1, 7);
-            lighting.Text = T("SL_LIGHTING"); lighting.Margin = new Padding(0, 14, 0, 2);
-            layout.Controls.Add(lighting, 0, 8); layout.SetColumnSpan(lighting, 2);
-            var gameBrightnessRow = SliderRow(gameBrightness, "SL_GAME_BRIGHTNESS", "%");
-            layout.Controls.Add(gameBrightnessRow, 0, 9); layout.SetColumnSpan(gameBrightnessRow, 2);
-            var brightnessHelp = new Label { Text = T("SL_BRIGHTNESS_LOCATION"), AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 8) };
-            layout.Controls.Add(brightnessHelp, 0, 10); layout.SetColumnSpan(brightnessHelp, 2);
-            lighting.CheckedChanged += (_, _) => gameBrightnessRow.Visible = brightnessHelp.Visible = lighting.Checked;
             var group = new GroupBox { Text = T("SL_PARTS"), Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(10, 20, 10, 8) };
             var grid = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2 };
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50)); grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
@@ -66,8 +59,8 @@ namespace MCSkin3D.Forms
                 parts[i] = new CheckBox { Name = "layerPart" + i, Text = T(names[i]), AutoSize = true };
                 grid.Controls.Add(parts[i], i % 2, i / 2);
             }
-            group.Controls.Add(grid); layout.Controls.Add(group, 0, 11); layout.SetColumnSpan(group, 2);
-            for (int i = 0; i < 12; i++) layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            group.Controls.Add(grid); layout.Controls.Add(group, 0, 8); layout.SetColumnSpan(group, 2);
+            for (int i = 0; i < 9; i++) layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             var footer = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
@@ -76,11 +69,10 @@ namespace MCSkin3D.Forms
             var reset = new Button { Name = "resetDefaults", Text = T("SL_RESET"), AutoSize = true };
             reset.Click += (_, _) => { LoadOptions(SkinLayerOptions.Defaults); LoadRendering(PreviewRenderOptions.Defaults); };
             footer.Controls.Add(cancel); footer.Controls.Add(apply); footer.Controls.Add(reset);
-            layout.Controls.Add(footer, 0, 13); layout.SetColumnSpan(footer, 2);
+            layout.Controls.Add(footer, 0, 10); layout.SetColumnSpan(footer, 2);
             Controls.Add(layout); AcceptButton = apply; CancelButton = cancel;
             LoadOptions(options);
-            LoadRendering(rendering ?? PreviewRenderOptions.Current);
-            brightnessHelp.Visible = lighting.Checked;
+            LoadRendering(renderingSnapshot);
         }
 
         private void LoadOptions(SkinLayerOptions options)
@@ -95,10 +87,6 @@ namespace MCSkin3D.Forms
             options = options.Validated();
             resolution.Value = options.Resolution;
             antialiasing.SelectedIndex = Array.IndexOf(new[] { 0, 2, 4, 8 }, options.Samples);
-            lighting.Checked = options.MinecraftLighting;
-            gameBrightness.Value = options.GameBrightness;
-            lightLevel = options.LightLevel;
-            gameBrightness.Parent.Visible = lighting.Checked;
         }
         private static TrackBar Slider(string name, int min, int max, int ticks) =>
             new() { Name = name, Minimum = min, Maximum = max, TickFrequency = ticks, LargeChange = ticks,

@@ -32,23 +32,34 @@ namespace Paril.OpenGL
 		public bool IsSkinLayer;
 		public bool LightingYUp;
 		private bool _lightingYUp;
-		private int _gameBrightness = -1;
 		private int _lightLevel = -1;
+		private int _lightAngle;
 		private float _worldBrightness = 1;
 		private Matrix4 _lightingMatrix;
 		// Vanilla Overworld cardinal lighting, converted to the editor's Y-down axes.
 		private static readonly Vector3 Light0 = new Vector3(.2f, -1, -.7f).Normalized();
 		private static readonly Vector3 Light1 = new Vector3(-.2f, -1, .7f).Normalized();
+		private Vector3 _light0 = Light0, _light1 = Light1;
 
-		public bool SetLighting(bool enabled, int gameBrightness = 100, int lightLevel = 15)
+		public bool SetLighting(bool enabled, int lightLevel = 15, int lightAngle = 0)
 		{
 			lightLevel = Math.Clamp(lightLevel, 0, 15);
-			gameBrightness = Math.Clamp(gameBrightness, 0, 100);
-			if (ShadeFaces == enabled && _gameBrightness == gameBrightness && _lightLevel == lightLevel && _lightingMatrix == Matrix && _lightingYUp == LightingYUp) return false;
+			lightAngle = PreviewRenderOptions.NormalizeLightAngle(lightAngle);
+			// Both endpoints remain selectable; they share the same rendered direction.
+			if (lightAngle == 90) lightAngle = -90;
+			if (ShadeFaces == enabled && _lightLevel == lightLevel && _lightAngle == lightAngle && _lightingMatrix == Matrix && _lightingYUp == LightingYUp) return false;
+			if (_lightAngle != lightAngle)
+			{
+				// Rotate the pair together around world vertical, keeping their elevation.
+				// Use the original vectors at zero so Default exactly restores vanilla shading.
+				var rotation = Matrix4.CreateRotationY(MathHelper.DegreesToRadians(lightAngle));
+				_light0 = lightAngle == 0 ? Light0 : Vector3.TransformVector(Light0, rotation);
+				_light1 = lightAngle == 0 ? Light1 : Vector3.TransformVector(Light1, rotation);
+				_lightAngle = lightAngle;
+			}
 			ShadeFaces = enabled;
-			_gameBrightness = gameBrightness;
 			_lightLevel = lightLevel;
-			_worldBrightness = MinecraftPreviewLighting.Daylight(lightLevel, gameBrightness);
+			_worldBrightness = MinecraftPreviewLighting.Daylight(lightLevel);
 			_lightingMatrix = Matrix;
 			_lightingYUp = LightingYUp;
 			return true;
@@ -66,7 +77,7 @@ namespace Paril.OpenGL
 			normal.Normalize();
 			// Mojang light.glsl: two diffuse lights, power .6, ambient .4.
 			// Only RGB is shaded; texture alpha and editable pixels are untouched.
-			float shade = Math.Min(1, .4f + .6f * (Math.Max(0, Vector3.Dot(Light0, normal)) + Math.Max(0, Vector3.Dot(Light1, normal))));
+			float shade = Math.Min(1, .4f + .6f * (Math.Max(0, Vector3.Dot(_light0, normal)) + Math.Max(0, Vector3.Dot(_light1, normal))));
 			// Minecraft multiplies entity diffuse shading by its world lightmap.
 			return shade * _worldBrightness;
 		}
