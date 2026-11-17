@@ -4,7 +4,7 @@ A Windows editor for painting Minecraft skins in 3D and 2D, migrated to .NET 10 
 
 ## Build and run
 
-Install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) (10.0.400 or a newer patch), then run on Windows:
+Install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) (10.0.404 or a newer patch), then run on Windows:
 
 ```powershell
 ./build.ps1
@@ -33,13 +33,21 @@ Both editions save preferences in `settings.ini` and skins in `Skins` beside the
 
 The desktop compatibility target is Windows 10 x64 (22H2) and Windows 11 x64, with an OpenGL 3.3 compatibility driver. The executable declares Windows 10 compatibility and runs without administrator privileges. The code audit found no Windows 11-only APIs; WinForms handles the available DPI APIs on each Windows version. Actual startup and graphics tests ran on Windows 11 build 26200, so Windows 10 execution still needs a Windows 10 test machine. Microsoft's servicing support is a separate matter: its current [.NET Windows support matrix](https://learn.microsoft.com/en-us/dotnet/core/install/windows#supported-versions) lists supported Windows 10 LTSC/Enterprise releases rather than ordinary 22H2 editions.
 
+## First-person preview
+
+Choose **First Person** on the viewport toolbar or **View > Mode > First Person** to see the selected Steve or Alex skin's empty hand, including its sleeve. **Right hand** is the initial selection; the hand selector switches to the skin's actual left arm. Modern, legacy and higher-resolution player skins are supported, including Skin + Cape workspaces. Other models return to the regular 3D view.
+
+The tool-options area includes a compact hand selector, and the choice is remembered between launches. Switching back to 3D restores the previous orbit camera. Painting and undo work directly on the visible hand. First-person sleeves stay flat even when **3D Skin Layers** is enabled; returning to 3D preserves that setting.
+
+The pose follows Minecraft Java's resting empty hand, rendered at a fixed 70° independently of world FOV. Toggling **3D Skin Layers** or **Minecraft Lighting** keeps the hand in the same place. The compact Brightness group remains visible but disabled when lighting is off, preserving the viewport size. See [first-person rendering details](docs/first-person-preview.md).
+
 ## 3D skin layers
 
 Click **3D Skin Layers** on the viewport toolbar, or enable **View > 3D Skin Layers**, to render player overlays using the [3D Skin Layers mod](https://github.com/tr7zw/3d-Skin-Layers)'s default geometry, UVs and proportions. Hats, jackets, sleeves and trouser overlays have full pixel depth and correctly joined corners. Transparent holes stay open and translucent pixels retain their alpha. Legacy skins support their hat layer, and higher-resolution skins use their actual pixels.
 
-**Minecraft Lighting** on the viewport toolbar toggles vanilla lighting without opening settings. Turning it off previews the original texture colors and hides the brightness slider while retaining its value. The toggle appears in 3D and hybrid views when 3D Skin Layers is enabled, and stays synchronized with advanced settings.
+**Minecraft Lighting** on the viewport toolbar toggles vanilla lighting without opening settings. Turning it off previews the original texture colors and hides the brightness slider while retaining its value, except in First Person where the disabled group remains visible to keep the hand stationary. The toggle appears in 3D, hybrid and first-person views when 3D Skin Layers is enabled, and stays synchronized with advanced settings.
 
-**Elytra** and **Brightness** are grouped in the tool-options area beside Fill/Brush options. They wrap at narrow widths and hide in 2D view or when their feature is off, retaining their values. Brightness uses Minecraft's **0-15 daylight levels**, defaulting to **8** (the nearest midpoint). It uses vanilla Minecraft's Overworld ambient light, nonlinear lightmap and fixed entity lighting, with game brightness at 100%. Level 0 retains the game's ambient light. Elytra spread appears only in combined elytra view.
+**Elytra** and **Brightness** are grouped in the tool-options area beside Fill/Brush options. They wrap at narrow widths and hide in 2D view or when their feature is off, retaining their values; First Person keeps its disabled Brightness group visible. Brightness uses Minecraft's **0-15 daylight levels**, defaulting to **8** (the nearest midpoint). It uses vanilla Minecraft's Overworld ambient light, nonlinear lightmap and fixed entity lighting, with game brightness at 100%. Level 0 retains the game's ambient light. Elytra spread appears only in combined elytra view.
 
 Advanced controls are under **Options > 3D Skin Layers settings**: pixel/head/body scales, individual layers, render distance, **50–200% render resolution**, **Off/2x/4x/8x antialiasing**, and Minecraft game brightness (default 100%). Quality changes apply immediately to the 3D view; the texture sheet stays at native resolution. **Reset to defaults** restores all controls, including daylight level to 8; **Apply** saves them and updates the main slider. See [rendering details](docs/skin-layer-rendering.md).
 
@@ -81,7 +89,7 @@ English is included. Additional language catalogs can be placed in the `Language
 
 ## Dependencies and compatibility
 
-- .NET 10; SDK 10.0.400.
+- .NET 10; SDK 10.0.404.
 - OpenTK graphics, mathematics and windowing 4.9.4; GLControl 4.0.2; GLFW native package 3.4.0.47.
 - SharpZipLib 1.4.2 replaces the bundled legacy ZIP source in the build.
 

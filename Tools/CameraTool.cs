@@ -41,6 +41,7 @@ namespace MCSkin3D
 
 		public void MouseMove(Skin skin, MouseEventArgs e)
 		{
+			if (Editor.MainForm.IsFirstPersonView) return;
 			var delta = new Point(e.X - _oldMouse.X, e.Y - _oldMouse.Y);
 			Point position = Cursor.Position;
 

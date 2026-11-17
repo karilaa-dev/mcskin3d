@@ -61,7 +61,8 @@ namespace MCSkin3D
             {
                 Faces = new List<Face>(), Mode = OpenTK.Graphics.OpenGL.PrimitiveType.Triangles, Part = _source.Part,
                 IsArmor = true, ShadeFaces = true, IsSkinLayer = true,
-                Matrix = _source.Matrix, Center = _source.Center, Bounds = _source.Bounds
+                Matrix = _source.Matrix, Center = _source.Center, Bounds = _source.Bounds,
+                LightingYUp = _source.LightingYUp
             };
             _cells.Clear();
             _frontFaces.Clear();

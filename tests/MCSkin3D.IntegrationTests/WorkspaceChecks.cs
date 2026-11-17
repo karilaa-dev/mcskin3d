@@ -133,7 +133,8 @@ internal static partial class Program
             foreach (var pose in new[] { 0f, .5f, 1f })
             {
                 editor.SetAccessoryView(view); editor.SetWingSpread(pose);
-                foreach (ViewMode mode in Enum.GetValues<ViewMode>())
+                // First Person intentionally excludes accessories; its protection is tested separately.
+                foreach (var mode in new[] { ViewMode.Perspective, ViewMode.Orthographic, ViewMode.Hybrid })
                 {
                     Call(editor, "SetViewMode", mode); editor.PerformResetCamera();
                     SetField(editor, "_3DRotationY", 180f);

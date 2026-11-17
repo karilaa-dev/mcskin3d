@@ -69,6 +69,9 @@ namespace MCSkin3D
 		[Savable, DefaultValue(8)]
 		public static int PreviewLightLevel { get; set; } = 8;
 
+		[Savable, DefaultValue(false)]
+		public static bool FirstPersonLeftHand { get; set; }
+
 		[Savable]
 		[DefaultValue("")]
 		public static string LastSkin { get; set; }

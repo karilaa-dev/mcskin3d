@@ -225,6 +225,7 @@ namespace MCSkin3D
 
 		public void PerformResetCamera()
 		{
+			if (_currentViewMode == ViewMode.FirstPerson) return;
 			_2DCamOffsetX = 0;
 			_2DCamOffsetY = 0;
 			_2DZoom = 8;
@@ -665,7 +666,7 @@ namespace MCSkin3D
 			GL.Enable(EnableCap.CullFace);
 			GL.CullFace(TriangleFace.Front);
 
-			if (grassToolStripMenuItem.Checked)
+			if (grassToolStripMenuItem.Checked && _currentViewMode != ViewMode.FirstPerson)
 				DrawSkinnedRectangle(0, GrassY + 0.25f, 0, 1024, 0, 1024, 0, 0, 1024, 1024, _grassTop, 16, 16);
 
 			GL.Disable(EnableCap.CullFace);
@@ -1063,6 +1064,7 @@ namespace MCSkin3D
 				{
 					if (!item.Model.PartsEnabled[meshIndex]) continue;
 					var mesh = item.Model.Meshes[meshIndex];
+					if (!IsMeshInView(item, mesh)) continue;
 					if (item.UseSkinLayers && item.SkinLayers.TryGetValue(mesh, out var layer) &&
 						layer.TryPick(CameraPosition, outputFar, out float layerDistance, out var pickedPixel))
 					{
@@ -1119,6 +1121,7 @@ namespace MCSkin3D
 
 		private void rendererControl_MouseWheel(object sender, MouseEventArgs e)
 		{
+			if (_currentViewMode == ViewMode.FirstPerson) return;
 			CheckMouse(e.Y);
 
 			if (_currentViewMode == ViewMode.Perspective || (_currentViewMode == ViewMode.Hybrid && _mouseIn3D))
@@ -1135,7 +1138,7 @@ namespace MCSkin3D
 
 		public Rectangle GetViewport3D()
 		{
-			if (_currentViewMode == ViewMode.Perspective)
+			if (_currentViewMode == ViewMode.Perspective || _currentViewMode == ViewMode.FirstPerson)
 				return new Rectangle(0, 0, Renderer.Width, Renderer.Height);
 			else
 			{
@@ -1294,6 +1297,10 @@ namespace MCSkin3D
 					GL.CullFace(TriangleFace.Front);
 
 				}
+				else if (_currentViewMode == ViewMode.FirstPerson)
+				{
+					DrawPreview3D(new Rectangle(0, 0, Renderer.Width, Renderer.Height), _previewPaint, skin);
+				}
 				else if (_currentViewMode == ViewMode.Orthographic)
 				{
 					Setup2D(new Rectangle(0, 0, Renderer.Width, Renderer.Height));
@@ -1329,6 +1336,15 @@ namespace MCSkin3D
 		private void CalculateMatrices()
 		{
 			Rectangle viewport = GetViewport3D();
+			if (_currentViewMode == ViewMode.FirstPerson)
+			{
+				_projectionMatrix = Matrix4.CreatePerspectiveFieldOfView(
+					MathHelper.DegreesToRadians(FirstPersonPreview.HandFov),
+					Math.Max(1, viewport.Width) / (float)Math.Max(1, viewport.Height), .05f * 16, 512);
+				_viewMatrix3d = Matrix4.Identity;
+				CameraPosition = Vector3.Zero;
+				return;
+			}
 			_projectionMatrix = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(45), viewport.Width / (float)viewport.Height, 8, 512);
 
 			viewport = GetViewport2D();
@@ -1445,6 +1461,7 @@ namespace MCSkin3D
 
 		public void RotateView(Point delta, float factor)
 		{
+			if (_currentViewMode == ViewMode.FirstPerson) return;
 			if (_currentViewMode == ViewMode.Perspective || (_currentViewMode == ViewMode.Hybrid && _mouseIn3D))
 			{
 				_3DRotationY += (delta.X * ToolScale) * factor;
@@ -1462,6 +1479,7 @@ namespace MCSkin3D
 
 		public void ScaleView(Point delta, float factor)
 		{
+			if (_currentViewMode == ViewMode.FirstPerson) return;
 			if (_currentViewMode == ViewMode.Perspective || (_currentViewMode == ViewMode.Hybrid && _mouseIn3D))
 			{
 				_3DZoom += (-delta.Y * ToolScale) * factor;
@@ -3575,13 +3593,22 @@ namespace MCSkin3D
 
 		private void SetViewMode(ViewMode newMode)
 		{
+			if (newMode == ViewMode.FirstPerson && !CanShowFirstPerson) return;
 			FinishStroke();
 			bool changed = _currentViewMode != newMode;
+			bool rebuild = changed && (_currentViewMode == ViewMode.FirstPerson || newMode == ViewMode.FirstPerson);
 			perspectiveToolStripButton.Checked = orthographicToolStripButton.Checked = hybridToolStripButton.Checked = false;
 			perspectiveToolStripMenuItem.Checked = textureToolStripMenuItem.Checked = hybridViewToolStripMenuItem.Checked = false;
 			_currentViewMode = newMode;
+			if (rebuild)
+			{
+				RebuildScene();
+				FillPartList();
+			}
+			_isValidPick = false;
+			_pickPosition = new Point(-1, -1);
 			RefreshWorkspaceControls();
-			if (changed && CombinedEnabled) FitWorkspace(false);
+			if (changed && CombinedEnabled && !rebuild) FitWorkspace(false);
 
 			switch (_currentViewMode)
 			{
@@ -3687,6 +3714,9 @@ namespace MCSkin3D
 					SetViewMode(ViewMode.Hybrid);
 					break;
 				case ViewMode.Hybrid:
+					SetViewMode(CanShowFirstPerson ? ViewMode.FirstPerson : ViewMode.Orthographic);
+					break;
+				case ViewMode.FirstPerson:
 					SetViewMode(ViewMode.Orthographic);
 					break;
 			}

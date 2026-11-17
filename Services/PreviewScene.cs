@@ -15,6 +15,7 @@ namespace MCSkin3D
     {
         public Skin Document;
         public Model Model;
+        public bool IsFirstPerson;
         public RectangleF Sheet;
         public byte[] Alpha;
         private Texture _alphaTexture;
@@ -25,12 +26,12 @@ namespace MCSkin3D
         private SkinLayerOptions _layerOptions;
         private readonly Dictionary<Mesh, bool> _transparency = new();
         public readonly Dictionary<Mesh, SkinLayerGeometry> SkinLayers = new();
-        public bool UseSkinLayers => GlobalSettings.SkinLayers3D &&
+        public bool UseSkinLayers => !IsFirstPerson && GlobalSettings.SkinLayers3D &&
             (Editor.CameraPosition - new Vector3(0, 24, 0)).LengthSquared <= MathF.Pow(SkinLayerOptions.Current.Distance * 16, 2);
 
         public void UpdateSkinLayers()
         {
-            if (!GlobalSettings.SkinLayers3D || Role(Document) != EditingTarget.Skin)
+            if (IsFirstPerson || !GlobalSettings.SkinLayers3D || Role(Document) != EditingTarget.Skin)
             {
                 SkinLayers.Clear();
                 _layersDirty = true;

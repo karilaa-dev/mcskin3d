@@ -141,6 +141,7 @@ namespace MCSkin3D
             brightnessRow.Controls.Add(_brightnessSlider);
             brightnessRow.Controls.Add(_brightnessValue);
             _toolOptionsArea.Controls.Add(_brightnessGroup);
+            InitializeFirstPerson();
             _toolOptionsArea.Layout += (_, _) => UpdateToolOptionsHeight();
             panel4.Controls.Add(_workspaceBar);
             // Place the wrapping bar below the existing viewport toolbar, including in the popout.
@@ -153,7 +154,7 @@ namespace MCSkin3D
             var group = new GroupBox { Name = name, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 MinimumSize = new Size(0, 64), Margin = new Padding(3), Padding = new Padding(6, 3, 6, 3) };
             row = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                Dock = DockStyle.Fill, WrapContents = false, Margin = new Padding(0) };
+                Dock = DockStyle.Fill, WrapContents = true, Margin = new Padding(0) };
             group.Controls.Add(row);
             return group;
         }
@@ -167,13 +168,43 @@ namespace MCSkin3D
                 splitContainer4.Panel1Collapsed = !_opening;
                 if (!_opening) return;
                 _selectedTool?.OptionsPanel?.ArrangeOptions(_toolOptionsArea.ClientSize.Width);
-                int preferred = _toolOptionsArea.GetPreferredSize(new Size(_toolOptionsArea.ClientSize.Width, 0)).Height + 4;
+                foreach (var group in new[] { _wingSpreadGroup, _brightnessGroup, _firstPersonGroup })
+                {
+                    if (group == null) continue;
+                    var row = group.Controls[0];
+                    row.MaximumSize = new Size(Math.Max(190, Math.Min(460,
+                        _toolOptionsArea.ClientSize.Width - group.Margin.Horizontal - group.Padding.Horizontal - 8)), 0);
+                    row.PerformLayout();
+                    group.PerformLayout();
+                }
+                // FlowLayoutPanel raises Layout before arranging its children, and
+                // nested AutoSize groups underreport wrapped preferred heights.
+                // Measure rows from the groups' actual sizes, including margins.
+                int preferred = _toolOptionsArea.Padding.Vertical + 4;
+                int usedWidth = 0, flowRowHeight = 0;
+                int contentWidth = _toolOptionsArea.ClientSize.Width - _toolOptionsArea.Padding.Horizontal;
+                foreach (Control control in _toolOptionsArea.Controls)
+                {
+                    if (!control.Visible) continue;
+                    int width = control.Width + control.Margin.Horizontal;
+                    int controlHeight = control.Height + control.Margin.Vertical;
+                    if (usedWidth > 0 && usedWidth + width > contentWidth)
+                    {
+                        preferred += flowRowHeight;
+                        usedWidth = flowRowHeight = 0;
+                    }
+                    usedWidth += width;
+                    flowRowHeight = Math.Max(flowRowHeight, controlHeight);
+                }
+                preferred += flowRowHeight;
                 int available = Math.Max(0, splitContainer4.Height - splitContainer4.Panel2MinSize - splitContainer4.SplitterWidth);
-                // Reserve one row for the legacy tool panels (designed at a
-                // 13-pixel font), including when Camera has no tool panel.
-                int rowHeight = (int)Math.Ceiling(74 * Font.Height / 13d * DeviceDpi / 96d);
+                // Reserve one row for legacy tool panels (designed at a 13-pixel
+                // font); first-person camera controls can use their compact height.
+                int rowHeight = IsFirstPersonView && _selectedTool?.OptionsPanel == null ? 0 :
+                    (int)Math.Ceiling(74 * Font.Height / 13d * DeviceDpi / 96d);
                 int height = Math.Min(Math.Max(rowHeight, preferred), available);
                 if (splitContainer4.SplitterDistance != height) splitContainer4.SplitterDistance = height;
+                splitContainer4.Panel1.PerformLayout();
             }
             finally { _layingOutToolOptions = false; }
         }
@@ -261,9 +292,14 @@ namespace MCSkin3D
             foreach (Control control in _workspaceBar.Controls) control.Visible = CombinedEnabled;
             _officialCapeLabel.Visible = CombinedEnabled && _workspaceCape?.IsReadOnly == true;
             bool has3DView = _currentViewMode != ViewMode.Orthographic;
+            RefreshFirstPersonControls();
             _minecraftLightingButton.Visible = has3DView && GlobalSettings.SkinLayers3D;
             bool showBrightness = has3DView && GlobalSettings.SkinLayers3D && GlobalSettings.MinecraftLighting;
-            _brightnessGroup.Visible = showBrightness;
+            // Keep the same compact controls and wrapping in first person. Hiding
+            // Brightness would resize the viewport and move the projected hand.
+            _brightnessGroup.MinimumSize = IsFirstPersonView ? Size.Empty : _wingSpreadGroup.MinimumSize;
+            _brightnessGroup.Visible = IsFirstPersonView || showBrightness;
+            _brightnessGroup.Enabled = showBrightness;
             _workspaceBar.Visible = CombinedEnabled;
             _brightnessGroup.Text = LanguageLoader.GetStringWithFallback("SL_BRIGHTNESS");
             _wingSpreadGroup.Text = LanguageLoader.GetStringWithFallback("W_ELYTRA");
@@ -276,7 +312,7 @@ namespace MCSkin3D
             _editCapeButton.BackColor = ActiveEditingTarget == EditingTarget.Cape ? SystemColors.GradientActiveCaption : SystemColors.Control;
             _capeButton.BackColor = AccessoryPresentation == AccessoryView.Cape ? SystemColors.GradientActiveCaption : SystemColors.Control;
             _elytraButton.BackColor = AccessoryPresentation == AccessoryView.Elytra ? SystemColors.GradientActiveCaption : SystemColors.Control;
-            _wingSpreadGroup.Visible = has3DView && CombinedEnabled && AccessoryPresentation == AccessoryView.Elytra;
+            _wingSpreadGroup.Visible = has3DView && _currentViewMode != ViewMode.FirstPerson && CombinedEnabled && AccessoryPresentation == AccessoryView.Elytra;
             _wingSpreadSlider.AccessibleName = LanguageLoader.GetStringWithFallback("W_WING_SPREAD");
             _brightnessSlider.AccessibleName = LanguageLoader.GetStringWithFallback("SL_BRIGHTNESS");
             _brightnessSlider.AccessibleDescription = LanguageLoader.GetStringWithFallback("SL_BRIGHTNESS_HELP");
@@ -448,11 +484,17 @@ namespace MCSkin3D
 
         private void RebuildScene()
         {
+            RebuildWorkspaceScene();
+            PrepareFirstPersonScene();
+            if (CombinedEnabled || GlobalSettings.SkinLayers3D) CaptureSceneLayers();
+        }
+
+        private void RebuildWorkspaceScene()
+        {
             _scene.Clear();
             if (!CombinedEnabled)
             {
                 if (_lastSkin != null) _scene.Add(new PreviewItem { Document = _lastSkin, Model = _lastSkin.Model });
-                if (GlobalSettings.SkinLayers3D) CaptureSceneLayers();
                 return;
             }
             if (_workspaceSkin != null && _playerSource != _workspaceSkin.Model)
@@ -471,7 +513,6 @@ namespace MCSkin3D
                 PreviewItem.PoseAccessory(model, AccessoryPresentation, WingSpread);
                 _scene.Add(new PreviewItem { Document = _workspaceCape, Model = model, Sheet = _capeSheet });
             }
-            CaptureSceneLayers();
         }
 
         private void CaptureSceneLayers()
@@ -684,6 +725,7 @@ namespace MCSkin3D
                 for (int i = 0; i < item.Model.Meshes.Count; ++i)
                 {
                     var mesh = item.Model.Meshes[i];
+                    if (!IsMeshInView(item, mesh)) continue;
                     bool visible = item.Model.PartsEnabled[i];
                     if (!visible && !GlobalSettings.Ghost) continue;
                     SkinLayerGeometry layer = null;

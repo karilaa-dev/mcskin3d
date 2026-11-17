@@ -69,6 +69,7 @@ internal static partial class Program
                 Run("Real splash/application startup", Startup);
                 if (args.Contains("--benchmark-render")) Run("3D layer rendering performance", BenchmarkLayerRendering);
                 else if (args.Contains("--render-quality")) Run("Minecraft colors, resolution and antialiasing", RenderQuality);
+                else if (args.Contains("--first-person")) Run("First-person rendering, stable lighting controls, hands and painting", FirstPerson);
                 else
                 {
                     if (args.Contains("--benchmark")) Run("Picking performance and deterministic results", BenchmarkPicking);
@@ -85,6 +86,7 @@ internal static partial class Program
                     Run("Official cape rendering, pixel protection and visibility", OfficialCapePreview);
                     Run("3D skin layer rendering, editing, undo and preference", SkinLayers3D);
                     Run("Minecraft colors, resolution and antialiasing", RenderQuality);
+                    Run("First-person rendering, stable lighting controls, hands and painting", FirstPerson);
                     // This check pumps native messages and can import the desktop's live
                     // modifier-key state; keep it after deterministic painting checks.
                     Run("Automatic updates do not block the editor", () => StartupUpdateChecks.Run(editor, Check));
@@ -158,7 +160,9 @@ internal static partial class Program
 
     private static void Rendering()
     {
-        foreach (ViewMode mode in Enum.GetValues<ViewMode>())
+        // First-person frames use a dedicated asymmetric-hand fixture below;
+        // an arbitrary startup skin need not have eight colors on its one arm.
+        foreach (ViewMode mode in new[] { ViewMode.Perspective, ViewMode.Orthographic, ViewMode.Hybrid })
         {
             Call(editor, "SetViewMode", mode);
             editor.Renderer.MakeCurrent();

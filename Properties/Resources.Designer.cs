@@ -443,6 +443,16 @@ namespace MCSkin3D.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap first_person {
+            get {
+                object obj = ResourceManager.GetObject("first_person", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap hybrid {
             get {
                 object obj = ResourceManager.GetObject("hybrid", resourceCulture);

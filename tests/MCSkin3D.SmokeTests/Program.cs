@@ -51,6 +51,7 @@ internal static class Program
         Run("Minecraft skin download resolves current endpoints and validates responses offline", () => SkinDownloadChecks.Run(Check));
         Run("Editor-wide chronological history", () => WorkspaceChecks.History(Check));
         Run("Combined preview geometry, picking and native layout", () => WorkspaceChecks.GeometryAndPicking(Check));
+        Run("First-person hand geometry, controls and preferences", () => FirstPersonChecks.Run(Check, Scratch));
         Run("Official cape assets, chronology, read-only protection and gallery", () => OfficialCapesChecks.Run(Check));
         if (Array.IndexOf(args, "--startup") >= 0)
             Run("OpenTK context and legacy rendering before editor becomes visible", HiddenOpenGlStartup);

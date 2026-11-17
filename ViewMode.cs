@@ -22,6 +22,7 @@ namespace MCSkin3D
 	{
 		Perspective,
 		Orthographic,
-		Hybrid
+		Hybrid,
+		FirstPerson
 	}
 }

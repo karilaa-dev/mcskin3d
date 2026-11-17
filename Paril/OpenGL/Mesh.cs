@@ -30,6 +30,8 @@ namespace Paril.OpenGL
 		public bool IsArmor;
 		public bool ShadeFaces;
 		public bool IsSkinLayer;
+		public bool LightingYUp;
+		private bool _lightingYUp;
 		private int _gameBrightness = -1;
 		private int _lightLevel = -1;
 		private float _worldBrightness = 1;
@@ -42,12 +44,13 @@ namespace Paril.OpenGL
 		{
 			lightLevel = Math.Clamp(lightLevel, 0, 15);
 			gameBrightness = Math.Clamp(gameBrightness, 0, 100);
-			if (ShadeFaces == enabled && _gameBrightness == gameBrightness && _lightLevel == lightLevel && _lightingMatrix == Matrix) return false;
+			if (ShadeFaces == enabled && _gameBrightness == gameBrightness && _lightLevel == lightLevel && _lightingMatrix == Matrix && _lightingYUp == LightingYUp) return false;
 			ShadeFaces = enabled;
 			_gameBrightness = gameBrightness;
 			_lightLevel = lightLevel;
 			_worldBrightness = MinecraftPreviewLighting.Daylight(lightLevel, gameBrightness);
 			_lightingMatrix = Matrix;
+			_lightingYUp = LightingYUp;
 			return true;
 		}
 
@@ -58,6 +61,7 @@ namespace Paril.OpenGL
 			// them locally so capes/elytra also use their current preview pose.
 			var normal = IsSkinLayer ? face.Normal : Vector3.Cross(face.Vertices[1] - face.Vertices[0], face.Vertices[2] - face.Vertices[0]);
 			normal = Vector3.TransformVector(normal, Matrix);
+			if (LightingYUp) normal.Y = -normal.Y;
 			if (normal.LengthSquared < 1e-10f) return _worldBrightness;
 			normal.Normalize();
 			// Mojang light.glsl: two diffuse lights, power .6, ambient .4.
