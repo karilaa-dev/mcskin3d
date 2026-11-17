@@ -501,25 +501,32 @@
     <PackageReference Include="OpenTK.GLControl" Version="4.0.2" />
     <PackageReference Include="OpenTK.redist.glfw" Version="3.4.0.47" />
     <PackageReference Include="SharpZipLib" Version="1.4.2" />
+    <EmbeddedResource Include="setup_files\Models\**\*.xml">
+      <LogicalName>FactoryModels/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="setup_files\grass.png" LogicalName="FactoryGrass.png" />
+    <EmbeddedResource Include="setup_files\license.txt" LogicalName="license.txt" />
+    <EmbeddedResource Include="setup_files\Swatches\Quick Picks.swtch" LogicalName="FactoryPalette.swtch" />
     <Content Include="setup_files\**\*" Exclude="setup_files\*.exe;setup_files\*.pdb;setup_files\*.zip;setup_files\*.config;setup_files\settings.ini">
       <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+      <CopyToPublishDirectory Condition="'%(Filename)%(Extension)' == 'English.lang'">PreserveNewest</CopyToPublishDirectory>
     </Content>
     <Content Include="bin_samples\Skins\**\*">
       <Link>Skins\Samples\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </Content>
     <Content Include="bin_samples\Overlays\**\*">
       <Link>Overlays\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </Content>
     <Content Include="bin_samples\samples license.txt">
       <Link>samples license.txt</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
 </Project>

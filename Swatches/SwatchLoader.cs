@@ -35,7 +35,20 @@ namespace MCSkin3D.Swatches
 		public static void LoadSwatches()
 		{
 			Swatches = new List<ISwatch>();
-			AddDirectory(GlobalSettings.GetDataURI("Swatches"), Swatches);
+			string folder = GlobalSettings.GetDataURI("Swatches");
+			if (!Directory.Exists(folder))
+			{
+				Directory.CreateDirectory(folder);
+				using var input = typeof(SwatchLoader).Assembly.GetManifestResourceStream("FactoryPalette.swtch");
+				string palette = Path.Combine(folder, "Quick Picks.swtch");
+				try
+				{
+					using var output = new FileStream(palette, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+					input.CopyTo(output);
+				}
+				catch (IOException ex) when ((ex.HResult & 0xffff) == 80) { } // A second instance created it first.
+			}
+			AddDirectory(folder, Swatches);
 		}
 
 		public static void FinishedLoadingSwatches()

@@ -60,7 +60,7 @@ internal static class Program
         Run("PNG pixels and skin metadata survive save/reload", PngRoundTrip);
         Run("Skin moves preserve files, selection and library boundaries", () => SkinMoveChecks.Run(Check, Scratch));
         Run("Minecraft skin download resolves current endpoints and validates responses offline", () => SkinDownloadChecks.Run(Check));
-        Run("GitHub release discovery, editions and skipped versions", () => UpdateCheckerChecks.Run(Check));
+        Run("GitHub release discovery, Minimal package selection and skipped versions", () => UpdateCheckerChecks.Run(Check));
         Run("Update dialog, skip persistence and cancellation", () => UpdateDialogChecks.Run(Check));
         Run("Update installation, file preservation, rollback and package validation", () => UpdateInstallerChecks.Run(Check, Scratch));
         Run("Editor-wide chronological history", () => WorkspaceChecks.History(Check));

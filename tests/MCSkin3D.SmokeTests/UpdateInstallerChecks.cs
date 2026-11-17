@@ -34,106 +34,67 @@ internal static class UpdateInstallerChecks
     {
         string target = Path.Combine(root, "preservation");
         Write(target, "MCSkin3D.exe", "original application");
-        Write(target, "update-channel.txt", "portable");
-        Write(target, "Models/factory.txt", "factory old");
-        Write(target, "Models/customized.txt", "factory old");
-        Write(target, "Models/deleted.txt", "factory old");
-        Write(target, "Skins/player.png", "skin drawing old");
-        Write(target, "Swatches/custom.swt", "user palette");
+        Write(target, UpdateInstaller.EnglishCatalog, "factory English");
+        Write(target, "Models/custom.xml", "user model");
+        Write(target, "Swatches/custom.swtch", "user palette");
+        Write(target, "Skins/player.png", "user skin");
         Write(target, "settings.ini", "user preferences");
         WriteManifest(target, "1.7.2.0");
-        Write(target, "Models/customized.txt", "local model edits");
-        Write(target, "Models/user-file.txt", "user-created model");
-        Write(target, "Skins/player.png", "unsaved skin saved before update");
-        File.Delete(Path.Combine(target, "Models/deleted.txt"));
         string job = NewJob(target);
-        string payload = Path.Combine(job, "payload");
-        CreatePayload(payload);
-        foreach (string relative in new[] { "Models/factory.txt", "Models/customized.txt", "Models/deleted.txt", "Models/user-file.txt", "Models/new.txt", "Skins/player.png", "Skins/new-sample.png", "Swatches/custom.swt", "Swatches/new-palette.swt", "settings.ini", "Data/settings.ini" })
-            Write(payload, relative, "new bundled version");
-        WriteManifest(payload, PackageVersion.ToString());
+        CreatePayload(Path.Combine(job, "payload"));
+        WriteManifest(Path.Combine(job, "payload"), PackageVersion.ToString());
+        var before = Snapshot(target);
         UpdateInstaller.ApplyPreparedUpdate(job);
-        check(UpdateInstaller.HashFile(Path.Combine(target, "MCSkin3D.exe")) == UpdateInstaller.HashFile(Path.Combine(payload, "MCSkin3D.exe")), "Installer replaces the application executable");
-        check(Read(target, "Models/factory.txt") == "new bundled version", "Unmodified bundled model receives update");
-        check(Read(target, "Models/customized.txt") == "local model edits", "Locally modified bundled model remains unchanged");
-        check(Read(target, "Models/user-file.txt") == "user-created model", "Custom model colliding with new bundled filename is preserved");
-        check(!File.Exists(Path.Combine(target, "Models/deleted.txt")), "Intentionally deleted old bundled resource stays deleted");
-        check(Read(target, "Models/new.txt") == "new bundled version", "New factory resource is installed");
-        check(Read(target, "Skins/player.png") == "unsaved skin saved before update" && !File.Exists(Path.Combine(target, "Skins/new-sample.png")), "User skins are preserved without reinstalling sample skins");
-        check(Read(target, "Swatches/custom.swt") == "user palette" && !File.Exists(Path.Combine(target, "Swatches/new-palette.swt")), "User swatches are preserved without reintroducing factory palettes");
-        check(Read(target, "settings.ini") == "user preferences" && !Directory.Exists(Path.Combine(target, "Data")), "Settings and legacy Data folder are not overwritten or created");
-        check(Read(Path.Combine(job, "backup"), "MCSkin3D.exe") == "original application" && Read(Path.Combine(job, "backup"), "Models/factory.txt") == "factory old", "Recovery backup contains replaced application and factory files");
-        check(UpdateInstaller.ReadManifest(target).Version == PackageVersion.ToString(), "Updated factory manifest is installed");
-        UpdateInstaller.RemoveStaging(job);
-        check(Directory.Exists(job), "Cleanup preserves a handed-off job containing recovery backups");
+        foreach (var file in before.Where(p => p.Key != "MCSkin3D.exe" && p.Key != UpdateInstaller.ManifestName &&
+            p.Key.Replace('\\', '/') != UpdateInstaller.EnglishCatalog))
+            check(UpdateInstaller.HashFile(Path.Combine(target, file.Key)) == file.Value, "Minimal preserves " + file.Key);
+        check(Read(target, UpdateInstaller.EnglishCatalog) == "new English", "Factory translation updates");
+        check(UpdateInstaller.ReadManifest(target).Files.Count == 2, "Installed manifest contracts to the two managed files");
+        check(Read(Path.Combine(job, "backup"), "MCSkin3D.exe") == "original application", "Executable backup retained");
     }
 
     private static void PreservationAcrossUpdates(Action<bool, string> check, string root)
     {
-        string target = Path.Combine(root, "consecutive-updates");
+        string target = Path.Combine(root, "custom-translation");
         Write(target, "MCSkin3D.exe", "original executable");
-        Write(target, "update-channel.txt", "portable");
-        Write(target, "Models/customized.txt", "factory one");
-        Write(target, "Models/removed.txt", "old deleted factory resource");
+        Write(target, UpdateInstaller.EnglishCatalog, "factory English");
         WriteManifest(target, "1.7.2.0");
-        Write(target, "Models/customized.txt", "factory two");
-        Write(target, "Models/untracked.txt", "user-created file");
-        File.Delete(Path.Combine(target, "Models/removed.txt"));
-        string first = NewJob(target);
-        string firstPayload = Path.Combine(first, "payload");
-        CreatePayload(firstPayload);
-        Write(firstPayload, "Models/customized.txt", "factory two");
-        Write(firstPayload, "Models/untracked.txt", "new bundled collision");
-        WriteManifest(firstPayload, PackageVersion.ToString());
-        UpdateInstaller.ApplyPreparedUpdate(first);
-        check(Read(target, "Models/customized.txt") == "factory two" && Read(target, "Models/untracked.txt") == "user-created file", "First update preserves customized file matching the proposed factory bytes and an untracked collision");
-        File.Delete(Path.Combine(target, "Models/untracked.txt"));
-        string second = NewJob(target);
-        string secondPayload = Path.Combine(second, "payload");
-        CreatePayload(secondPayload);
-        Write(secondPayload, "Models/customized.txt", "factory three");
-        Write(secondPayload, "Models/untracked.txt", "third factory collision");
-        Write(secondPayload, "Models/removed.txt", "reintroduced factory resource");
-        WriteManifest(secondPayload, PackageVersion.ToString());
-        UpdateInstaller.ApplyPreparedUpdate(second);
-        check(Read(target, "Models/customized.txt") == "factory two", "Customized file remains protected on the next update even when it matched prior factory bytes");
-        check(!File.Exists(Path.Combine(target, "Models/untracked.txt")), "A preserved untracked collision stays deleted when its owner removes it between updates");
-        check(!File.Exists(Path.Combine(target, "Models/removed.txt")), "Deleted factory file is not resurrected after an intervening release omitted it");
+        Write(target, UpdateInstaller.EnglishCatalog, "new English");
+        for (int i = 0; i < 2; i++)
+        {
+            string job = NewJob(target);
+            string payload = Path.Combine(job, "payload");
+            CreatePayload(payload);
+            if (i == 1) Write(payload, UpdateInstaller.EnglishCatalog, "third English");
+            WriteManifest(payload, PackageVersion.ToString());
+            UpdateInstaller.ApplyPreparedUpdate(job);
+            check(Read(target, UpdateInstaller.EnglishCatalog) == "new English", "Customized translation survives successive updates");
+        }
     }
+
     private static void Rollback(Action<bool, string> check, string root)
     {
         string target = Path.Combine(root, "rollback");
         Write(target, "MCSkin3D.exe", "original executable bytes");
-        Write(target, "update-channel.txt", "portable");
-        Write(target, "Models/original.txt", "old factory model");
         Write(target, "settings.ini", "untouched preferences");
         WriteManifest(target, "1.7.2.0");
         var before = Snapshot(target);
         string job = NewJob(target);
         string payload = Path.Combine(job, "payload");
         CreatePayload(payload);
-        Write(payload, "Models/original.txt", "new factory model");
-        Write(payload, "new-resource.txt", "new resource to roll back");
         WriteManifest(payload, PackageVersion.ToString());
-        int installed = 0;
         Expect<IOException>(() => UpdateInstaller.ApplyPreparedUpdate(job, count =>
         {
-            installed = count;
-            // Fail after the new file and the manifest were also installed.
-            if (count == UpdateInstaller.ReadManifest(payload).Files.Count + 1)
-                throw new IOException("Injected failure after final replacement");
-        }), check, "A failed installation reports the rollback");
-        check(installed > 3, "Fault injection occurs after multiple replacements and new-file installation");
+            if (count == 3) throw new IOException("Injected failure after all replacements");
+        }), check, "Failed install reports rollback");
         var after = Snapshot(target);
-        check(before.Count == after.Count && before.All(item => after.TryGetValue(item.Key, out var hash) && item.Value == hash), "Rollback restores every original file byte-for-byte and removes newly installed files");
-        check(File.Exists(Path.Combine(job, "backup", "MCSkin3D.exe")), "Rollback retains recovery backup");
+        check(before.Count == after.Count && before.All(p => after.TryGetValue(p.Key, out var hash) && p.Value == hash),
+            "Rollback restores the original executable and manifest and removes the newly added catalog");
     }
-
     private static void LockAndDowngrade(Action<bool, string> check, string root)
     {
         string target = Path.Combine(root, "lock-and-downgrade");
         Write(target, "MCSkin3D.exe", "original executable");
-        Write(target, "update-channel.txt", "portable");
         WriteManifest(target, "1.7.2.0");
         string job = NewJob(target);
         string payload = Path.Combine(job, "payload");
@@ -218,22 +179,19 @@ internal static class UpdateInstallerChecks
     {
         string payload = Path.Combine(root, "manifest-payload");
         CreatePayload(payload);
-        Write(payload, "Models/test.txt", "original resource");
         WriteManifest(payload, PackageVersion.ToString());
-        check(UpdateInstaller.ValidatePayload(payload, PackageVersion).Files.Count == 3, "Valid complete file manifest and executable version pass verification");
-        Write(payload, "Models/test.txt", "tampered resource");
+        check(UpdateInstaller.ValidatePayload(payload, PackageVersion).Files.Count == 2, "Valid complete file manifest and executable version pass verification");
+        Write(payload, UpdateInstaller.EnglishCatalog, "tampered resource");
         Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, PackageVersion), check, "Payload file hash mismatch rejected");
         WriteManifest(payload, PackageVersion.ToString());
         Write(payload, "unexpected.txt", "unlisted file");
         Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, PackageVersion), check, "Unlisted payload file rejected");
         File.Delete(Path.Combine(payload, "unexpected.txt"));
         Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, new Version(99, 0, 0, 0)), check, "Release and manifest version mismatch rejected");
-        WriteManifest(payload, PackageVersion.ToString(), "lightweight");
-        Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, PackageVersion), check, "Retired lightweight payload manifest is rejected");
-        Write(payload, "update-channel.txt", "lightweight");
+        Write(payload, "Skins/unexpected.png", "extra");
         WriteManifest(payload, PackageVersion.ToString());
-        Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, PackageVersion), check, "Portable manifest cannot disguise a lightweight payload channel");
-        Write(payload, "update-channel.txt", "portable");
+        Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, PackageVersion), check, "Even a listed extra file is outside the Minimal payload");
+        File.Delete(Path.Combine(payload, "Skins/unexpected.png"));
         WriteManifest(payload, "99.0.0.0");
         Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, new Version(99, 0, 0, 0)), check, "Executable version must match manifest and release");
         var duplicate = new Dictionary<string, string> { ["file.txt"] = new string('a', 64), ["FILE.TXT"] = new string('a', 64) };
@@ -248,7 +206,6 @@ internal static class UpdateInstallerChecks
     {
         string target = Path.Combine(root, "downloads");
         Write(target, "MCSkin3D.exe", "old executable");
-        Write(target, "update-channel.txt", "portable");
         Write(target, "settings.ini", "user preference sentinel");
         string source = Path.Combine(root, "download-source");
         CreatePayload(source);
@@ -256,7 +213,7 @@ internal static class UpdateInstallerChecks
         string archive = Path.Combine(root, "valid-download.zip");
         ZipFile.CreateFromDirectory(source, archive);
         byte[] bytes = File.ReadAllBytes(archive);
-        string filename = "MCSkin3D-" + PackageVersion + "-win-x64.zip";
+        string filename = "MCSkin3D-" + PackageVersion + "-win-x64-minimal.zip";
         var release = new UpdateRelease
         {
             Version = PackageVersion, TagName = "v" + PackageVersion,
@@ -273,19 +230,6 @@ internal static class UpdateInstallerChecks
             check(Read(target, "MCSkin3D.exe") == "old executable" && Read(target, "settings.ini") == "user preference sentinel", "Preparation does not alter the running installation");
         }
         check(!Directory.Exists(job), "Abandoned prepared update removes its own staging folder");
-        string legacyTarget = Path.Combine(root, "legacy-lightweight-migration");
-        Write(legacyTarget, "MCSkin3D.exe", "legacy lightweight application");
-        Write(legacyTarget, "update-channel.txt", "lightweight");
-        Write(legacyTarget, "settings.ini", "legacy preference sentinel");
-        Write(legacyTarget, "Skins/my-skin.png", "legacy skin sentinel");
-        WriteManifest(legacyTarget, "1.7.2.0", "lightweight");
-        using (var prepared = await UpdateInstaller.PrepareAsync(release, legacyTarget, client, null, CancellationToken.None).ConfigureAwait(false))
-        {
-            check(UpdateInstaller.ReadEdition(legacyTarget) == "lightweight", "Preparing portable migration leaves the legacy installation untouched");
-            UpdateInstaller.ApplyPreparedUpdate(prepared.DirectoryPath);
-            check(UpdateInstaller.ReadEdition(legacyTarget) == "portable" && UpdateInstaller.ReadManifest(legacyTarget).Edition == "portable", "Legacy lightweight installation migrates to the portable edition");
-            check(Read(legacyTarget, "settings.ini") == "legacy preference sentinel" && Read(legacyTarget, "Skins/my-skin.png") == "legacy skin sentinel", "Portable migration preserves legacy user settings and skins");
-        }
         byte[] corrupt = (byte[])bytes.Clone();
         corrupt[corrupt.Length - 1] ^= 1;
         handler.Content = () => new ByteArrayContent(corrupt);
@@ -309,14 +253,14 @@ internal static class UpdateInstallerChecks
     {
         Directory.CreateDirectory(payload);
         File.Copy(Path.Combine(AppContext.BaseDirectory, "MCSkin3D.exe"), Path.Combine(payload, "MCSkin3D.exe"));
-        Write(payload, "update-channel.txt", "portable");
+        Write(payload, UpdateInstaller.EnglishCatalog, "new English");
     }
-    private static void WriteManifest(string directory, string version, string edition = "portable")
+    private static void WriteManifest(string directory, string version)
     {
         var files = Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
             .Where(file => Path.GetFileName(file) != UpdateInstaller.ManifestName)
             .ToDictionary(file => Path.GetRelativePath(directory, file).Replace('\\', '/'), UpdateInstaller.HashFile);
-        File.WriteAllText(Path.Combine(directory, UpdateInstaller.ManifestName), JsonSerializer.Serialize(new UpdateManifest { Version = version, Edition = edition, Files = files }));
+        File.WriteAllText(Path.Combine(directory, UpdateInstaller.ManifestName), JsonSerializer.Serialize(new UpdateManifest { Version = version, Files = files }));
     }
     private static void Write(string directory, string relative, string text)
     {

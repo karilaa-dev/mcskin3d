@@ -14,6 +14,7 @@ namespace MCSkin3D
 		static void RecurseAddDirectories(string path, IList nodes, List<Skin> skins)
 		{
 			var di = new DirectoryInfo(path);
+			if (!di.Exists) return;
 
 			foreach (FileInfo file in di.EnumerateFiles("*.png", SearchOption.TopDirectoryOnly))
 			{
@@ -42,6 +43,26 @@ namespace MCSkin3D
 
 		public static void LoadSkins()
 		{
+			// Only seed a brand-new local library. An existing empty library is a user choice.
+			string library = GlobalSettings.GetDataURI("Skins");
+			if (Editor.HasOneRoot && !Directory.Exists(library) &&
+				string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(Editor.RootFolderString)), library, StringComparison.OrdinalIgnoreCase))
+			{
+				Directory.CreateDirectory(library);
+				var texture = ModelLoader.GetModelForPath("Players/Steve")?.DefaultTexture;
+				if (!string.IsNullOrEmpty(texture))
+				{
+					string starter = Path.Combine(library, "Steve.png");
+					try
+					{
+						using var file = new FileStream(starter, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+						file.Write(Convert.FromBase64String(texture));
+					}
+					catch (IOException ex) when ((ex.HResult & 0xffff) == 80) { } // A second instance created it first.
+				}
+			}
+			foreach (string configured in GlobalSettings.SkinDirectories)
+				Directory.CreateDirectory(MacroHandler.ReplaceMacros(configured));
 			var skins = new List<Skin>();
 			var rootNodes = new List<TreeNode>();
 

@@ -20,11 +20,11 @@ The script builds the editor, language editor and regression checks with locked 
 ./build.ps1 -GraphicsTests
 ```
 
-`-Publish` produces the **portable Windows x64 edition**: `artifacts/MCSkin3D-2.0.0.0-win-x64.zip`, also ready to run in `artifacts/publish/compact-win-x64`. The .NET runtime and native graphics libraries are included; no separate runtime installation is needed. This is the only published edition.
+**Minimal** contains `MCSkin3D.exe`, `Languages/English.lang`, and `update-manifest.json`. The executable includes the Windows x64 runtime, built-in models and grass texture. On a fresh launch the editor creates settings, a local starter skin and a palette.
 
-The package places `Languages`, `Models`, `Swatches`, `Skins`, `Overlays`, grass texture and documentation beside `MCSkin3D.exe`, with no `Data` wrapper. For a fresh installation, extract the whole archive into a writable folder before running. For an existing 1.7.2 installation, follow the selective upgrade below. A source build needs the .NET 10 Desktop Runtime.
+**Full** adds 93 sample skins, overlays, palettes, readmes, credits and license files. Both downloads run the same editor and use Minimal for future updates.
 
-Preferences are saved in `settings.ini` and skins in `Skins` beside the executable. To migrate a previous build that used `Data`, back up that folder and copy its contents beside the new executable. Source builds use the same adjacent-assets layout. Bundled native libraries are extracted automatically into the user's temporary .NET cache at launch. Publishing uses a fresh staging folder and preserves prior releases outside the final folder, avoiding stale DLLs and keeping test edits safe. ZIP compression is performed at build time and does not change runtime execution.
+Publishing writes both ZIPs and `SHA256SUMS.txt` under `artifacts`. Extract either ZIP into a writable folder and run `MCSkin3D.exe`.
 
 `-GraphicsTests` additionally checks rendered pixels, opens the actual splash and editor, and exercises rendering, painting, undo/redo, saving, skin import, tabs, languages and swatches using isolated sample copies. It requires an active Windows desktop and OpenGL 3.3 support; an unavailable display is reported separately from passing tests. Modern Visual Studio with .NET 10 support or the CLI can build the projects.
 
@@ -34,24 +34,9 @@ The desktop compatibility target is Windows 10 x64 (22H2) and Windows 11 x64, wi
 
 After the editor opens, MCSkin3D checks this repository's latest stable GitHub release in the background. A newer version opens a window with its changelog, **Update and restart**, **Close**, and **Skip this update**. Installing begins only when you choose Update and restart. Skipping remembers that version; later versions can still be offered. **Help > Check for updates** also shows versions you previously skipped.
 
-The updater downloads the portable package, verifies its size and SHA-256 checksum, and stages it before closing the editor. Unsaved edits have a **Save / Don't save / Cancel** decision; canceling keeps the editor open. Installation preserves skins, settings, swatches and custom files. Unmodified factory files can be refreshed using the package manifest, while modified bundled assets are preserved. User files are never deleted. Replaced files are backed up, and an installation failure triggers rollback.
+To upgrade from **1.7.2**, save your work, close MCSkin3D, and drag the **contents of Minimal** into the folder containing your existing `MCSkin3D.exe`. Allow the executable and stock English translation to be replaced. If you customized `Languages/English.lang`, keep your copy when prompted. Start the editor from that folder. It loads your saved preferences and adds missing settings automatically. Your skins, custom models, swatches and other files stay in place.
 
-Automatic installation is available in the published portable edition, extracted into a writable folder. Source builds use a manual download instead.
-
-**Upgrading from the 1.7.2 portable ZIP:** save your work, close every editor instance, and back up the existing application folder. Download 2.0.0.0 from [GitHub Releases](https://github.com/karilaa-dev/mcskin3d/releases), extract it into a separate folder, then copy only these files into the corresponding locations in your existing installation:
-
-| Action | File | Purpose |
-| --- | --- | --- |
-| Replace | `MCSkin3D.exe` | Required application update; includes the .NET runtime. |
-| Add | `update-channel.txt` | Required to enable future automatic updates. |
-| Add | `update-manifest.json` | Required to enable future automatic updates. |
-| Replace if unmodified | `Languages/English.lang` | Updated English labels; keep a customized catalog. |
-| Replace, optional | `changes.txt` | Updated release notes. |
-| Replace, optional | `readme.txt` | Updated package instructions. |
-
-Leave `settings.ini`, `Skins`, `Swatches`, `Models`, `Overlays`, custom language files and every other existing file untouched. The other 175 files in the original 1.7.2 ZIP are byte-identical to the 2.0.0.0 package. The executable alone upgrades the editor; adding both metadata files enables its automatic installer. Older English catalogs use embedded fallback text for the new controls. See [upgrade and recovery details](docs/updating.md).
-
-Versions 1.7.1 and 1.7.2 can open the release page but cannot install this first upgrade. The exact file comparison above is for the supplied 1.7.2 package. Future updates can be installed from the new update window.
+Automatic updates verify the GitHub checksum, back up replaced files, and offer to save edits before restarting. See [upgrade and recovery details](docs/updating.md).
 
 ## First-person preview
 

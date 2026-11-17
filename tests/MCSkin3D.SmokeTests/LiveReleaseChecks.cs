@@ -27,17 +27,13 @@ internal static class LiveReleaseChecks
         Directory.CreateDirectory(target);
         ZipFile.ExtractToDirectory(originalPackage, target);
         if (!File.Exists(Path.Combine(target, "MCSkin3D.exe"))) throw new InvalidDataException("Original package has no root executable.");
-        File.WriteAllText(Path.Combine(target, "settings.ini"), "[GlobalSettings]\r\nAutoUpdate=False\r\nLanguageFile=en\r\nUseSquareColorPicker=True\r\n");
+        File.WriteAllText(Path.Combine(target, "settings.ini"), "[GlobalSettings]\r\nAutoUpdate=False\r\nLanguageFile=en\r\nPreviewLightLevel=6\r\nLegacyKey=keep\r\n");
         Directory.CreateDirectory(Path.Combine(target, "Skins", "Updater verification"));
         string customSkin = Path.Combine(target, "Skins", "Updater verification", "my-skin.png");
         File.Copy(Directory.GetFiles(Path.Combine(target, "Skins"), "*.png", SearchOption.AllDirectories).First(), customSkin);
         string customPalette = Path.Combine(target, "Swatches", "keep-this-custom-file.txt");
         File.WriteAllText(customPalette, "Do not overwrite this user's file.");
         string skinHash = UpdateInstaller.HashFile(customSkin);
-        string settingsBefore = File.ReadAllText(Path.Combine(target, "settings.ini"));
-        string edition = File.Exists(Path.Combine(target, "update-channel.txt")) ? UpdateInstaller.ReadEdition(target) : "portable";
-        File.WriteAllText(Path.Combine(target, "update-channel.txt"), edition);
-
         string job;
         int localOption = Array.IndexOf(args, "--local-package");
         if (localOption >= 0)
@@ -80,13 +76,12 @@ internal static class LiveReleaseChecks
         if (sentinel.ExitCode != 0 || !File.Exists(Path.Combine(job, "ready")) || File.ReadAllText(Path.Combine(job, "result.txt")) != "success")
             throw new InvalidOperationException("Real updater helper did not complete successfully: " + job);
         if (UpdateInstaller.HashFile(customSkin) != skinHash || File.ReadAllText(customPalette) != "Do not overwrite this user's file." ||
-            File.ReadAllText(Path.Combine(target, "settings.ini")) != settingsBefore)
+            !File.ReadAllLines(Path.Combine(target, "settings.ini")).Contains("AutoUpdate=False"))
             throw new InvalidOperationException("The update changed user skin, palette or settings data.");
         if (UpdateInstaller.HashFile(Path.Combine(target, "MCSkin3D.exe")) != UpdateInstaller.HashFile(Path.Combine(job, "payload", "MCSkin3D.exe")))
             throw new InvalidOperationException("The helper did not install the expected executable.");
-        if (UpdateInstaller.ReadEdition(target) != "portable" || UpdateInstaller.ReadManifest(target).Edition != "portable")
-            throw new InvalidOperationException("The updated installation is not the portable edition.");
-        Console.WriteLine("PASS production handoff, helper readiness/exit wait, portable installation and exact user-data preservation");
+        if (UpdateInstaller.ReadManifest(target).Files.Count != 2) throw new InvalidOperationException("Expected the Minimal manifest.");
+        Console.WriteLine("PASS production handoff, verified Minimal installation and original user data");
 
         Process restarted = null;
         for (int attempt = 0; attempt < 100 && restarted == null; attempt++)
@@ -104,21 +99,45 @@ internal static class LiveReleaseChecks
             if (restarted == null) await Task.Delay(100);
         }
         if (restarted == null) throw new InvalidOperationException("The updated editor was not restarted.");
-        using (restarted)
-        {
-            for (int attempt = 0; attempt < 200; attempt++)
-            {
-                restarted.Refresh();
-                if (restarted.HasExited) throw new InvalidOperationException("The restarted editor exited unexpectedly.");
-                if (restarted.MainWindowTitle.Contains("MCSkin3D", StringComparison.OrdinalIgnoreCase) && restarted.MainWindowTitle.Contains("2.0.0.0")) break;
-                await Task.Delay(100);
-            }
-            restarted.Refresh();
-            if (!restarted.MainWindowTitle.Contains("2.0.0.0")) throw new InvalidOperationException("The restarted v2 editor did not become ready: " + restarted.MainWindowTitle);
-            Console.WriteLine("PASS updated editor restarted: " + restarted.MainWindowTitle);
-            if (!restarted.CloseMainWindow()) throw new InvalidOperationException("Could not close the isolated test editor cleanly.");
-            await restarted.WaitForExitAsync(timeout.Token);
-        }
+        using (restarted) await WaitForEditorAndCloseAsync(restarted);
+        var preferences = File.ReadAllLines(Path.Combine(target, "settings.ini"));
+        if (!new[] { "AutoUpdate=False", "PreviewLightLevel=6", "LegacyKey=keep", "SkippedUpdateVersion=" }.All(preferences.Contains))
+            throw new InvalidOperationException("Old settings were not migrated with their values intact.");
+
+        // The same Minimal payload must also boot with no previous installation or settings.
+        string fresh = Path.Combine(job, "fresh-test");
+        string source = Path.Combine(job, "payload");
+        Directory.CreateDirectory(Path.Combine(fresh, "Languages"));
+        foreach (string file in new[] { "MCSkin3D.exe", "Languages/English.lang", "update-manifest.json" })
+            File.Copy(Path.Combine(source, file), Path.Combine(fresh, file));
+        using var firstLaunch = Process.Start(new ProcessStartInfo(Path.Combine(fresh, "MCSkin3D.exe"))
+            { WorkingDirectory = fresh, UseShellExecute = false, WindowStyle = ProcessWindowStyle.Hidden });
+        await WaitForEditorAndCloseAsync(firstLaunch);
+        if (!File.ReadAllLines(Path.Combine(fresh, "settings.ini")).Contains("PreviewLightLevel=15") ||
+            !File.Exists(Path.Combine(fresh, "Swatches", "Quick Picks.swtch")))
+            throw new InvalidOperationException("Minimal did not initialize its settings and palette.");
+        using var starter = new System.Drawing.Bitmap(Path.Combine(fresh, "Skins", "Steve.png"));
+        if (starter.Width != 64 || starter.Height != 64) throw new InvalidDataException("Invalid starter skin.");
+        Console.WriteLine("PASS Minimal starts from three files, generates settings, starter skin and palette");
         Console.WriteLine("Release verification passed. Retained isolated files and backup: " + target);
+    }
+
+    private static async Task WaitForEditorAndCloseAsync(Process editor)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        try
+        {
+            while (true)
+            {
+                editor.Refresh();
+                if (editor.HasExited) throw new InvalidOperationException("The test editor exited during startup.");
+                if (editor.MainWindowTitle.Contains("MCSkin3D") && editor.MainWindowTitle.Contains("2.0.0.0")) break;
+                await Task.Delay(100, timeout.Token);
+            }
+            Console.WriteLine("PASS editor opened: " + editor.MainWindowTitle);
+            if (!editor.CloseMainWindow()) throw new InvalidOperationException("Could not close the isolated test editor cleanly.");
+            await editor.WaitForExitAsync(timeout.Token);
+        }
+        finally { if (!editor.HasExited) editor.Kill(); }
     }
 }

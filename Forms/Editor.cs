@@ -293,7 +293,14 @@ namespace MCSkin3D
 
 			_charWidths[(byte)' ' - 32] = 4;
 
-			_grassTop = new TextureGL(GlobalSettings.GetDataURI("grass.png"));
+			var grassFile = GlobalSettings.GetDataURI("grass.png");
+			if (File.Exists(grassFile)) _grassTop = new TextureGL(grassFile);
+			else
+			{
+				using var input = typeof(Editor).Assembly.GetManifestResourceStream("FactoryGrass.png");
+				using var grass = new Bitmap(input);
+				_grassTop = new TextureGL(grass);
+			}
 			_grassTop.SetMipmapping(false);
 			_grassTop.SetRepeat(true);
 
@@ -301,7 +308,8 @@ namespace MCSkin3D
 			_dynamicOverlay.Item = mDYNAMICOVERLAYToolStripMenuItem;
 			_backgrounds.Add(_dynamicOverlay);
 
-			foreach (string file in Directory.EnumerateFiles(GlobalSettings.GetDataURI("Overlays"), "*.png"))
+			var overlayFolder = GlobalSettings.GetDataURI("Overlays");
+			foreach (string file in Directory.Exists(overlayFolder) ? Directory.EnumerateFiles(overlayFolder, "*.png") : Array.Empty<string>())
 			{
 				try
 				{
@@ -3476,12 +3484,6 @@ namespace MCSkin3D
 			visiblePartsToolStripMenuItem.DropDown.Closing += DontCloseMe;
 			mSHAREDToolStripMenuItem.DropDown.Closing += DontCloseMe;
 
-			if (!Directory.Exists(GlobalSettings.GetDataURI("Models")) ||
-				Environment.CurrentDirectory.StartsWith(Environment.ExpandEnvironmentVariables("%temp%")))
-			{
-				MessageBox.Show(GetLanguageString("M_TEMP"));
-				Application.Exit();
-			}
 		}
 
 		private void DontCloseMe(object sender, ToolStripDropDownClosingEventArgs e)
@@ -4499,9 +4501,6 @@ namespace MCSkin3D
 			SetSelectedTool(_tools[0]);
 
 			Brushes.LoadBrushes();
-
-			foreach (string x in GlobalSettings.SkinDirectories)
-				Directory.CreateDirectory(MacroHandler.ReplaceMacros(x));
 
 			// set up the GL control
 			OpenTK.Windowing.Desktop.GLFWProvider.EnsureInitialized();

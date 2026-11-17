@@ -35,7 +35,8 @@ namespace Paril.Settings.Serializers
 
 		public object Deserialize(string str)
 		{
-			string[] split = str.Split();
+			string[] split = str.Split((char[])null, System.StringSplitOptions.RemoveEmptyEntries);
+			if (split.Length != 4) throw new System.FormatException("Expected four color components.");
 
 			return Color.FromArgb(byte.Parse(split[3]), byte.Parse(split[0]), byte.Parse(split[1]), byte.Parse(split[2]));
 		}

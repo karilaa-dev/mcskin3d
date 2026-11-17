@@ -146,8 +146,8 @@ internal static class UpdateDialogChecks
         HtmlUrl = "https://github.com/karilaa-dev/mcskin3d/releases/tag/v2.0.0.0",
         Asset = new UpdateAsset
         {
-            Name = "MCSkin3D-2.0.0.0-win-x64.zip", Size = 100,
-            DownloadUrl = "https://github.com/karilaa-dev/mcskin3d/releases/download/v2.0.0.0/MCSkin3D-2.0.0.0-win-x64.zip",
+            Name = "MCSkin3D-2.0.0.0-win-x64-minimal.zip", Size = 100,
+            DownloadUrl = "https://github.com/karilaa-dev/mcskin3d/releases/download/v2.0.0.0/MCSkin3D-2.0.0.0-win-x64-minimal.zip",
             Sha256 = checksum ? new string('a', 64) : null
         }
     };

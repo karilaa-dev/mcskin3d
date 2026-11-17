@@ -19,7 +19,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using MCSkin3D.Macros;
 using MCSkin3D.Properties;
 
 namespace MCSkin3D.Languages
@@ -73,16 +72,10 @@ namespace MCSkin3D.Languages
 
 		public static Language LoadDefault()
 		{
-			Directory.CreateDirectory(GlobalSettings.GetDataURI("Languages"));
-			using (var writer = new FileStream(MacroHandler.ReplaceMacros(GlobalSettings.GetDataURI("Languages\\English.lang")), FileMode.Create))
-				writer.Write(Resources.English, 0, Resources.English.Length);
-
-			using (var reader = new StreamReader(new MemoryStream(Resources.English), Encoding.Unicode))
-			{
-				Language lang = Language.Parse(reader);
-				Languages.Add(lang);
-				return lang;
-			}
+			// An unreadable user translation can still be recovered or edited on disk.
+			Language language = EmbeddedEnglish.Value;
+			Languages.Add(language);
+			return language;
 		}
 	}
 }

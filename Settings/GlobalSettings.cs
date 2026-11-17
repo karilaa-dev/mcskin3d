@@ -224,8 +224,10 @@ namespace MCSkin3D
 				Settings = new Settings();
 				Settings.Structures.Add(typeof(GlobalSettings));
 
-				Settings.Load(GetDataURI("settings.ini"));
+				Settings.Load(GetDataURI("settings.ini"), upgradeMissingKeys: true);
 
+				if (SkinDirectories.Length == 0)
+					SkinDirectories = new[] { @".\Skins\" };
 				for (var i = 0; i < SkinDirectories.Length; ++i)
 				{
 					var dir = SkinDirectories[i];

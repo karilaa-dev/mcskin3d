@@ -1,6 +1,6 @@
 # Windows smoke checks
 
-Updater coverage includes stable release discovery, version normalization, portable-only package selection, skipped-version persistence and manual bypass, native dialog layout/cancellation, corrupt or canceled downloads, unsafe ZIPs, file manifests, user-file preservation across successive upgrades, rollback, competing installation locks, downgrade rejection, and atomic settings-save failures. The editor integration suite also verifies saving edited skins before restart and cancellation of shutdown. See [the updater guide](../docs/updating.md) for opt-in checks of real packages and published GitHub releases.
+Updater coverage includes stable release discovery, version normalization, Minimal package selection, skipped-version persistence and manual bypass, native dialog layout/cancellation, corrupt or canceled downloads, unsafe ZIPs, file manifests, user-file preservation across successive upgrades, rollback, competing installation locks, downgrade rejection, and atomic settings-save failures. The editor integration suite also verifies saving edited skins before restart and cancellation of shutdown. See [the updater guide](../docs/updating.md) for opt-in checks of fresh Minimal installs, settings migration and published GitHub releases.
 
 Run from the repository root with the .NET 10 SDK on Windows:
 

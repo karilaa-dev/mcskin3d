@@ -1,4 +1,4 @@
-﻿//
+//
 //    MCSkin3D, a 3d skin management studio for Minecraft
 //    Copyright (C) 2013 Altered Softworks & MCSkin3D Team
 //
@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Reflection;
+using System.Linq;
 
 namespace Paril.Settings
 {
@@ -150,32 +151,72 @@ namespace Paril.Settings
 		private readonly StringSerializer _serializer = new StringSerializer();
 		public List<object> Structures = new List<object>();
 
-		public void Save(string fileName)
+		private Dictionary<string, Dictionary<string, PropertyInfo>> PropertiesBySection()
 		{
-			// Serialize first, then replace atomically: a failed preference save must not truncate existing settings.
-			using var writer = new StringWriter();
+			return Structures.OfType<Type>().ToDictionary(t => t.Name,
+				t => t.GetProperties(BindingFlags.Static | BindingFlags.Public)
+					.Where(p => p.IsDefined(typeof(SavableAttribute), false)).ToDictionary(p => p.Name));
+		}
 
-			foreach (object v in Structures)
+		public void Save(string fileName) => WriteSettings(fileName, false);
+
+		private void WriteSettings(string fileName, bool addMissingOnly)
+		{
+			var sections = PropertiesBySection();
+			var pending = sections.ToDictionary(s => s.Key, s => new HashSet<string>(s.Value.Keys));
+			var lines = new List<string>();
+			string section = null;
+			bool changed = false;
+
+			void AddMissingKeys()
 			{
-				if (!(v is Type))
-					continue;
-
-				var type = (Type)v;
-
-				writer.WriteLine("[" + type.Name + "]");
-
-				foreach (PropertyInfo prop in type.GetProperties(BindingFlags.Static | BindingFlags.Public))
+				if (section == null || !pending.TryGetValue(section, out var keys)) return;
+				foreach (string key in keys)
 				{
-					if (prop.GetCustomAttributes(typeof(SavableAttribute), false).Length != 0)
-					{
-						string str = _serializer.Serialize(prop, prop.GetValue(null, null));
-						writer.WriteLine(prop.Name + "=" + str);
-					}
+					var property = sections[section][key];
+					lines.Add(key + "=" + _serializer.Serialize(property, property.GetValue(null)));
+					changed = true;
 				}
-
-				writer.WriteLine();
+				keys.Clear();
 			}
 
+			// Preserve other sections, comments and unrecognized keys from earlier versions.
+			if (File.Exists(fileName))
+			{
+				foreach (string original in File.ReadAllLines(fileName))
+				{
+					string line = original.Trim();
+					if (line.StartsWith("[") && line.EndsWith("]"))
+					{
+						AddMissingKeys();
+						section = line.Substring(1, line.Length - 2);
+					}
+					int equals = line.IndexOf('=');
+					if (equals > 0 && section != null && sections.TryGetValue(section, out var properties))
+					{
+						string key = line.Substring(0, equals).Trim();
+						if (properties.TryGetValue(key, out var property))
+						{
+							pending[section].Remove(key);
+							if (!addMissingOnly)
+							{
+								lines.Add(key + "=" + _serializer.Serialize(property, property.GetValue(null)));
+								continue;
+							}
+						}
+					}
+					lines.Add(original);
+				}
+			}
+			AddMissingKeys();
+			foreach (var pair in pending)
+			{
+				if (pair.Value.Count == 0) continue;
+				section = pair.Key;
+				lines.Add("[" + section + "]");
+				AddMissingKeys();
+			}
+			if (addMissingOnly && !changed) return;
 			string destination = Path.GetFullPath(fileName);
 			string temporary = destination + ".tmp-" + Guid.NewGuid().ToString("N");
 			try
@@ -183,7 +224,7 @@ namespace Paril.Settings
 				using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
 				using (var output = new StreamWriter(stream))
 				{
-					output.Write(writer.ToString());
+					foreach (string line in lines) output.WriteLine(line);
 					output.Flush();
 					stream.Flush(true);
 				}
@@ -229,67 +270,37 @@ namespace Paril.Settings
 			}
 		}
 
-		public void Load(string fileName)
+		public void Load(string fileName, bool upgradeMissingKeys = false)
 		{
 			LoadDefaults();
-
 			if (!File.Exists(fileName))
 			{
 				Save(fileName);
 				return;
 			}
 
-			var reader = new StreamReader(fileName);
-
-			object currentObject = null;
-			while (!reader.EndOfStream)
+			var sections = PropertiesBySection();
+			Dictionary<string, PropertyInfo> properties = null;
+			foreach (string original in File.ReadAllLines(fileName))
 			{
-				string line = reader.ReadLine().Trim();
-
-				if (string.IsNullOrEmpty(line))
-					continue;
-
+				string line = original.Trim();
 				if (line.StartsWith("[") && line.EndsWith("]"))
 				{
-					string header = line.Split(new[] { '[', ']' }, StringSplitOptions.RemoveEmptyEntries)[0];
-
-					foreach (object v in Structures)
-					{
-						if (!(v is Type))
-							continue;
-
-						if (header == ((Type)v).Name)
-						{
-							currentObject = v;
-							break;
-						}
-					}
+					sections.TryGetValue(line.Substring(1, line.Length - 2), out properties);
+					continue;
 				}
-				else if (currentObject != null)
+				int equals = line.IndexOf('=');
+				if (equals <= 0 || properties == null || !properties.TryGetValue(line.Substring(0, equals).Trim(), out var property))
+					continue;
+				string value = line.Substring(equals + 1);
+				try { property.SetValue(null, _serializer.Deserialize(property, value, property.PropertyType)); }
+				catch (Exception ex) when (ex is FormatException || ex is ArgumentException || ex is NotSupportedException ||
+					ex is System.Security.Cryptography.CryptographicException || ex is OverflowException)
 				{
-					var pair = new string[2];
-					int split = line.IndexOf('=');
-					pair[0] = line.Substring(0, split);
-					pair[1] = line.Substring(split + 1);
-
-					if (currentObject is Type)
-					{
-						var type = (Type)currentObject;
-
-						foreach (PropertyInfo prop in type.GetProperties(BindingFlags.Static | BindingFlags.Public))
-						{
-							if (prop.GetCustomAttributes(typeof(SavableAttribute), false).Length != 0 &&
-								prop.Name == pair[0])
-							{
-								object val = _serializer.Deserialize(prop, pair[1], prop.PropertyType);
-								prop.SetValue(null, val, null);
-							}
-						}
-					}
+					// A malformed preference keeps its default without discarding the rest of the file.
 				}
 			}
-
-			reader.Close();
+			if (upgradeMissingKeys) WriteSettings(fileName, true);
 		}
 	}
 }

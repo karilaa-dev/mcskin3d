@@ -28,7 +28,7 @@ internal static class UpdateCheckerChecks
         check(checker.LastCheckSucceeded && checker.LastError == null, "Successful request clears error");
         check(checker.LatestRelease.Version == new Version(2, 0, 0, 0), "Release version normalized to four components");
         check(checker.LatestRelease.Body == "## Changes\n- New preview & updater", "Release notes are retained as untrusted plain text");
-        check(checker.LatestRelease.Asset.Name == "MCSkin3D-2.0.0.0-win-x64.zip" && checker.LatestRelease.Asset.Sha256 == new string('a', 64), "Portable asset and normalized SHA-256 digest selected");
+        check(checker.LatestRelease.Asset.Name == "MCSkin3D-2.0.0.0-win-x64-minimal.zip" && checker.LatestRelease.Asset.Sha256 == new string('a', 64), "Portable asset and normalized SHA-256 digest selected");
 
         skipped = "v2.0.0";
         check(!await checker.CheckForUpdatesAsync().ConfigureAwait(false) && checker.LastCheckSucceeded && checker.LatestRelease != null, "Skipped release suppresses automatic prompt but retains release metadata");
@@ -44,18 +44,15 @@ internal static class UpdateCheckerChecks
         handler.Body = JsonSerializer.Serialize(Release("v1.7.10"));
         check(await new UpdateChecker(client, new Version(1, 7, 9)).CheckForUpdatesAsync().ConfigureAwait(false), "Version ordering is numeric rather than lexical");
 
-        var portableAsset = Asset("v2.0.0.0", false);
-        var lightAsset = Asset("v2.0.0.0", true);
-        handler.Body = JsonSerializer.Serialize(Release(assets: new[] { portableAsset, lightAsset }));
-        check(await checker.CheckForUpdatesAsync().ConfigureAwait(false) && checker.LatestRelease.Asset.Name == "MCSkin3D-2.0.0.0-win-x64.zip", "Portable package is selected even when a retired lightweight package is present");
-        handler.Body = JsonSerializer.Serialize(Release(assets: new[] { lightAsset }));
-        check(!await checker.CheckForUpdatesAsync().ConfigureAwait(false) && !checker.LastCheckSucceeded && checker.LatestRelease == null, "A release with only a lightweight package is not installable");
-        handler.Body = JsonSerializer.Serialize(Release(assets: new[] { portableAsset }));
-        check(await checker.CheckForUpdatesAsync().ConfigureAwait(false), "Portable-only release is installable");
-        var legacy = Asset("v2.0.0.0", false, "MCSkin3D-win-x64.zip");
-        handler.Body = JsonSerializer.Serialize(Release(assets: new[] { legacy }));
-        check(await checker.CheckForUpdatesAsync().ConfigureAwait(false), "Existing unversioned archive name is supported");
-        handler.Body = JsonSerializer.Serialize(Release(assets: new[] { portableAsset, legacy }));
+        var minimalAsset = Asset("v2.0.0.0", false);
+        var fullAsset = Asset("v2.0.0.0", true);
+        handler.Body = JsonSerializer.Serialize(Release(assets: new[] { minimalAsset, fullAsset }));
+        check(await checker.CheckForUpdatesAsync().ConfigureAwait(false) && checker.LatestRelease.Asset.Name == "MCSkin3D-2.0.0.0-win-x64-minimal.zip", "Minimal is selected when Full is also present");
+        handler.Body = JsonSerializer.Serialize(Release(assets: new[] { fullAsset }));
+        check(!await checker.CheckForUpdatesAsync().ConfigureAwait(false) && !checker.LastCheckSucceeded && checker.LatestRelease == null, "Full is never selected for an automatic update");
+        handler.Body = JsonSerializer.Serialize(Release(assets: new[] { minimalAsset }));
+        check(await checker.CheckForUpdatesAsync().ConfigureAwait(false), "Minimal alone is installable");
+        handler.Body = JsonSerializer.Serialize(Release(assets: new[] { minimalAsset, minimalAsset }));
         check(!await checker.CheckForUpdatesAsync().ConfigureAwait(false) && !checker.LastCheckSucceeded, "Ambiguous packages are rejected");
 
         var noDigest = Asset("v2.0.0.0", false);
@@ -70,11 +67,11 @@ internal static class UpdateCheckerChecks
             check(!await checker.CheckForUpdatesAsync().ConfigureAwait(false) && !checker.LastCheckSucceeded, "Malformed digest rejected: " + digest);
         }
         foreach (string url in new[] {
-            "http://github.com/karilaa-dev/mcskin3d/releases/download/v2.0.0.0/MCSkin3D-2.0.0.0-win-x64.zip",
-            "https://github.com/another/repository/releases/download/v2.0.0.0/MCSkin3D-2.0.0.0-win-x64.zip",
-            "https://github.com.evil.example/karilaa-dev/mcskin3d/releases/download/v2.0.0.0/MCSkin3D-2.0.0.0-win-x64.zip",
-            "https://github.com/karilaa-dev/mcskin3d/releases/download/v1.0.0/MCSkin3D-2.0.0.0-win-x64.zip",
-            "https://github.com/karilaa-dev/mcskin3d/releases/download/v2.0.0.0/MCSkin3D-2.0.0.0-win-x64.zip?redirect=evil"
+            "http://github.com/karilaa-dev/mcskin3d/releases/download/v2.0.0.0/MCSkin3D-2.0.0.0-win-x64-minimal.zip",
+            "https://github.com/another/repository/releases/download/v2.0.0.0/MCSkin3D-2.0.0.0-win-x64-minimal.zip",
+            "https://github.com.evil.example/karilaa-dev/mcskin3d/releases/download/v2.0.0.0/MCSkin3D-2.0.0.0-win-x64-minimal.zip",
+            "https://github.com/karilaa-dev/mcskin3d/releases/download/v1.0.0/MCSkin3D-2.0.0.0-win-x64-minimal.zip",
+            "https://github.com/karilaa-dev/mcskin3d/releases/download/v2.0.0.0/MCSkin3D-2.0.0.0-win-x64-minimal.zip?redirect=evil"
         })
         {
             var broken = Asset("v2.0.0.0", false);
@@ -137,9 +134,9 @@ internal static class UpdateCheckerChecks
         ["assets"] = assets ?? new[] { Asset(tag, false) }
     };
 
-    private static Dictionary<string, object> Asset(string tag, bool light, string filename = null)
+    private static Dictionary<string, object> Asset(string tag, bool full, string filename = null)
     {
-        filename ??= "MCSkin3D-" + tag.TrimStart('v', 'V') + (light ? "-win-x64-light.zip" : "-win-x64.zip");
+        filename ??= "MCSkin3D-" + tag.TrimStart('v', 'V') + (full ? "-win-x64-full.zip" : "-win-x64-minimal.zip");
         return new Dictionary<string, object>
         {
             ["name"] = filename, ["size"] = 12345L, ["state"] = "uploaded", ["digest"] = "sha256:" + new string('A', 64),

@@ -334,6 +334,18 @@ namespace MCSkin3D.Models
 			else
 				throw new FileLoadException();
 
+			return ConvertDocument(document);
+		}
+
+		internal Model LoadXml(Stream input)
+		{
+			var document = new XmlDocument();
+			document.Load(input);
+			return ConvertDocument(document);
+		}
+
+		private static Model ConvertDocument(XmlDocument document)
+		{
 			var tcnModel = new TCNFile();
 			tcnModel.Parse(document.DocumentElement);
 

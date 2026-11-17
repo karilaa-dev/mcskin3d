@@ -115,8 +115,8 @@ internal static class FirstPersonChecks
             Call(editor, "CalculateMatrices");
             settings.Save(file);
             check(GlobalSettings.FirstPersonLeftHand && Field<Matrix4>(editor, "_projectionMatrix") == defaultProjection &&
-                !File.ReadAllText(file).Contains("FirstPersonFov="),
-                "Hand preference persists and obsolete FOV settings are safely ignored and removed on save");
+                File.ReadAllText(file).Contains("FirstPersonFov=110"),
+                "Hand preference persists, and retaining an unrecognized legacy key leaves the fixed projection unchanged");
         }
         finally
         {

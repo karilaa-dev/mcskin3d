@@ -28,14 +28,16 @@ namespace MCSkin3D.UpdateSystem
     internal sealed class UpdateManifest
     {
         public string Version { get; set; }
-        public string Edition { get; set; }
         public Dictionary<string, string> Files { get; set; }
         // Installation provenance: once a path belongs to the user, future packages must leave it alone.
-        public List<string> PreservedFiles { get; set; } = new List<string>();
+        [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public List<string> PreservedFiles { get; set; }
     }
 
     internal static class UpdateInstaller
     {
+        internal const string EnglishCatalog = "Languages/English.lang";
+        private static readonly string[] ApplicationFiles = { "MCSkin3D.exe", EnglishCatalog };
         internal const string ManifestName = "update-manifest.json";
         internal const string StagingPrefix = ".mcskin3d-update-";
         private const long MaximumDownload = 512L * 1024 * 1024;
@@ -45,8 +47,7 @@ namespace MCSkin3D.UpdateSystem
         [UnconditionalSuppressMessage("SingleFile", "IL3000", Justification = "An empty Assembly.Location intentionally identifies single-file published installations.")]
         public static bool IsSupportedInstallation =>
             string.IsNullOrEmpty(typeof(UpdateInstaller).Assembly.Location) &&
-            File.Exists(Path.Combine(AppContext.BaseDirectory, ManifestName)) &&
-            File.Exists(Path.Combine(AppContext.BaseDirectory, "update-channel.txt"));
+            File.Exists(Path.Combine(AppContext.BaseDirectory, ManifestName));
 
         private static HttpClient CreateDownloadClient()
         {
@@ -71,7 +72,6 @@ namespace MCSkin3D.UpdateSystem
                 throw new InvalidDataException("The update package is not from this project's GitHub release.");
             string target = Path.GetFullPath(targetDirectory);
             EnsureNoLinks(target, target);
-            _ = ReadEdition(target); // Legacy lightweight installations migrate into the portable package.
             string job = Path.Combine(target, StagingPrefix + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(job); // Also verifies this portable installation is writable.
             var prepared = new PreparedUpdate(job);
@@ -110,14 +110,6 @@ namespace MCSkin3D.UpdateSystem
                 return prepared;
             }
             catch { prepared.Dispose(); throw; }
-        }
-
-        // Recognize the retired marker only to allow installed lightweight copies to become portable.
-        internal static string ReadEdition(string directory)
-        {
-            string value = File.ReadAllText(Path.Combine(directory, "update-channel.txt")).Trim();
-            if (value != "portable" && value != "lightweight") throw new InvalidDataException("Unknown installed update edition.");
-            return value;
         }
 
         internal static void ExtractPackage(string archivePath, string payload, CancellationToken cancellationToken)
@@ -164,9 +156,8 @@ namespace MCSkin3D.UpdateSystem
         {
             var manifest = ReadManifest(payload);
             if (!UpdateChecker.TryParseVersion(manifest.Version, out var version) || version != expectedVersion ||
-                manifest.Edition != "portable" || !manifest.Files.ContainsKey("MCSkin3D.exe") ||
-                !manifest.Files.ContainsKey("update-channel.txt"))
-                throw new InvalidDataException("The update package must be the portable edition and match the release version.");
+                manifest.Files.Count != ApplicationFiles.Length || !ApplicationFiles.All(manifest.Files.ContainsKey))
+                throw new InvalidDataException("The Minimal update must contain the editor and English catalog and match the release version.");
             var actual = Directory.GetFiles(payload, "*", SearchOption.AllDirectories)
                 .Select(file => Path.GetRelativePath(payload, file).Replace('\\', '/'))
                 .Where(file => file != ManifestName).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -178,8 +169,7 @@ namespace MCSkin3D.UpdateSystem
                 if (!HashFile(SafePath(payload, item.Key)).Equals(item.Value, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException("An update file failed verification: " + item.Key);
             }
-            if (ReadEdition(payload) != "portable" ||
-                !UpdateChecker.TryParseVersion(FileVersionInfo.GetVersionInfo(Path.Combine(payload, "MCSkin3D.exe")).ProductVersion, out var exeVersion) ||
+            if (!UpdateChecker.TryParseVersion(FileVersionInfo.GetVersionInfo(Path.Combine(payload, "MCSkin3D.exe")).ProductVersion, out var exeVersion) ||
                 exeVersion != expectedVersion)
                 throw new InvalidDataException("The executable version does not match the release.");
             return manifest;
@@ -195,7 +185,7 @@ namespace MCSkin3D.UpdateSystem
             var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var item in manifest.Files)
             {
-                SafePath(directory, item.Key);
+                SafePath(directory, item.Key, checkLinks: false);
                 if (item.Key.Contains('\\') || item.Key.Equals(ManifestName, StringComparison.OrdinalIgnoreCase) ||
                     !IsHash(item.Value) || !files.TryAdd(item.Key, item.Value))
                     throw new InvalidDataException("Invalid update manifest entry.");
@@ -203,11 +193,11 @@ namespace MCSkin3D.UpdateSystem
             manifest.Files = files;
             manifest.PreservedFiles ??= new List<string>();
             if (manifest.PreservedFiles.Count > 10000) throw new InvalidDataException("Too many preserved update paths.");
-            foreach (string path in manifest.PreservedFiles) SafePath(directory, path);
+            foreach (string path in manifest.PreservedFiles) SafePath(directory, path, checkLinks: false);
             return manifest;
         }
 
-        internal static string SafePath(string root, string relative)
+        internal static string SafePath(string root, string relative, bool checkLinks = true)
         {
             if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Contains('\\'))
                 throw new InvalidDataException("Unsafe update path.");
@@ -223,7 +213,7 @@ namespace MCSkin3D.UpdateSystem
             string fullRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
             string path = Path.GetFullPath(Path.Combine(fullRoot, relative));
             if (!path.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Update path escapes its folder.");
-            EnsureNoLinks(root, path);
+            if (checkLinks) EnsureNoLinks(root, path);
             return path;
         }
 
@@ -370,7 +360,6 @@ namespace MCSkin3D.UpdateSystem
             string payload = Path.Combine(job, "payload");
             var proposed = ReadManifest(payload);
             if (!UpdateChecker.TryParseVersion(proposed.Version, out var version)) throw new InvalidDataException("Invalid update version.");
-            _ = ReadEdition(target);
             var manifest = ValidatePayload(payload, version);
             using var updateLock = AcquireInstallerLock(target);
             // Catch another editor instance (Windows holds the running executable open).
@@ -381,41 +370,37 @@ namespace MCSkin3D.UpdateSystem
                 (UpdateChecker.TryParseVersion(FileVersionInfo.GetVersionInfo(Path.Combine(target, "MCSkin3D.exe")).ProductVersion,
                     out var installedExeVersion) && version < installedExeVersion))
                 throw new UpdateBlockedException("A newer version is already installed. This staged update was not applied.");
-            var preserved = new HashSet<string>(previous?.PreservedFiles ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
-            var installedManifest = new UpdateManifest
-            {
-                Version = manifest.Version, Edition = manifest.Edition,
-                Files = new Dictionary<string, string>(previous?.Files ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase)
-            };
-            foreach (var item in manifest.Files) installedManifest.Files[item.Key] = item.Value;
+            bool preserveEnglish = previous?.PreservedFiles.Contains(EnglishCatalog, StringComparer.OrdinalIgnoreCase) == true;
+            var installedManifest = new UpdateManifest { Version = manifest.Version, Files = manifest.Files };
             var installed = new List<(string Path, bool Existed)>();
             string backup = Path.Combine(job, "backup");
             try
             {
-                foreach (string relative in manifest.Files.Keys.Concat(new[] { ManifestName }))
+                foreach (string relative in ApplicationFiles.Append(ManifestName))
                 {
-                    // Do not even resolve user folders; they may legitimately be junctions to an external library.
-                    if (IsUserData(relative)) continue;
                     string destination = SafePath(target, relative);
                     bool exists = File.Exists(destination);
-                    bool applicationFile = relative is "MCSkin3D.exe" or "update-channel.txt" or ManifestName;
-                    // User libraries and preferences are never installed, changed, or removed by an update.
-                    if (!applicationFile)
+                    if (relative == EnglishCatalog)
                     {
-                        if (preserved.Contains(relative)) continue;
-                        bool wasBundled = previous?.Files.TryGetValue(relative, out _) == true;
-                        if (!exists && wasBundled) continue; // Respect intentional deletion of an old bundled asset.
-                        if (exists && (!wasBundled || !HashFile(destination).Equals(previous.Files[relative], StringComparison.OrdinalIgnoreCase)))
+                        if (preserveEnglish) continue;
+                        string oldHash = null;
+                        previous?.Files.TryGetValue(relative, out oldHash);
+                        if (exists && !string.Equals(HashFile(destination), oldHash, StringComparison.OrdinalIgnoreCase))
                         {
-                            preserved.Add(relative);
-                            continue; // Keep this ownership decision across every subsequent update.
+                            preserveEnglish = true;
+                            continue;
+                        }
+                        if (!exists && oldHash != null)
+                        {
+                            preserveEnglish = true;
+                            continue;
                         }
                     }
                     Directory.CreateDirectory(Path.GetDirectoryName(destination));
                     string incoming = Path.Combine(job, "incoming");
                     if (relative == ManifestName)
                     {
-                        installedManifest.PreservedFiles = preserved.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToList();
+                        if (preserveEnglish) installedManifest.PreservedFiles = new List<string> { EnglishCatalog };
                         File.WriteAllText(incoming, JsonSerializer.Serialize(installedManifest));
                     }
                     else File.Copy(SafePath(payload, relative), incoming, true);
@@ -459,16 +444,6 @@ namespace MCSkin3D.UpdateSystem
                     FileAccess.ReadWrite, FileShare.None);
             }
             catch (IOException ex) { throw new UpdateBlockedException("Another editor or installer is using this folder. Close it before trying the update again.", ex); }
-        }
-
-        private static bool IsUserData(string relative)
-        {
-            string first = relative.Split('/')[0];
-            return first.Equals("Skins", StringComparison.OrdinalIgnoreCase) ||
-                first.Equals("Swatches", StringComparison.OrdinalIgnoreCase) ||
-                first.Equals("Data", StringComparison.OrdinalIgnoreCase) ||
-                first.Equals("settings.ini", StringComparison.OrdinalIgnoreCase) ||
-                first.StartsWith(".", StringComparison.Ordinal) || first.Equals("__updateFiles", StringComparison.OrdinalIgnoreCase);
         }
 
         internal static void RemoveStaging(string job)

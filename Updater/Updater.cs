@@ -124,15 +124,14 @@ namespace MCSkin3D.UpdateSystem
         private static UpdateAsset ReadAsset(JsonElement root, string tag)
         {
             string versionText = tag[0] == 'v' || tag[0] == 'V' ? tag.Substring(1) : tag;
-            string versionedName = "MCSkin3D-" + versionText + "-win-x64.zip";
-            const string legacyName = "MCSkin3D-win-x64.zip";
+            string versionedName = "MCSkin3D-" + versionText + "-win-x64-minimal.zip";
             UpdateAsset selected = null;
             foreach (var entry in root.GetProperty("assets").EnumerateArray())
             {
                 string name = entry.GetProperty("name").GetString();
-                if (name != versionedName && name != legacyName) continue;
+                if (name != versionedName) continue;
                 if (selected != null)
-                    throw new InvalidDataException("The release contains ambiguous portable update packages.");
+                    throw new InvalidDataException("The release contains duplicate Minimal update packages.");
                 string expectedUrl = ReleasesUrl + "/download/" + Uri.EscapeDataString(tag) + "/" + Uri.EscapeDataString(name);
                 if (entry.GetProperty("browser_download_url").GetString() != expectedUrl)
                     throw new InvalidDataException("The update download is outside this application's GitHub release.");
@@ -154,7 +153,7 @@ namespace MCSkin3D.UpdateSystem
                 }
                 selected = new UpdateAsset { Name = name, DownloadUrl = expectedUrl, Size = size, Sha256 = sha256 };
             }
-            return selected ?? throw new InvalidDataException("The latest release does not include the portable Windows x64 package.");
+            return selected ?? throw new InvalidDataException("The latest release does not include the Minimal Windows x64 package.");
         }
 
         private static string OptionalString(JsonElement element, string property) =>

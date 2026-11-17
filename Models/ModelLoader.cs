@@ -35,12 +35,10 @@ namespace MCSkin3D
 
 		public static void LoadModels()
 		{
-			if (!Directory.Exists(GlobalSettings.GetDataURI("Models")))
-				return;
-
 			var tcnParser = new ModelFormatTCN();
-
-			foreach (string m in Directory.EnumerateFiles(GlobalSettings.GetDataURI("Models"), "*.*", SearchOption.AllDirectories))
+			var directory = GlobalSettings.GetDataURI("Models");
+			foreach (string m in Directory.Exists(directory)
+				? Directory.EnumerateFiles(directory, "*.*", SearchOption.AllDirectories) : Array.Empty<string>())
 			{
 				try
 				{
@@ -55,6 +53,20 @@ namespace MCSkin3D
 				catch
 				{
 				}
+			}
+
+			// Custom and legacy models keep their original menu paths and take priority.
+			var assembly = typeof(ModelLoader).Assembly;
+			const string prefix = "FactoryModels/";
+			foreach (var resource in assembly.GetManifestResourceNames())
+			{
+				if (!resource.StartsWith(prefix, StringComparison.Ordinal)) continue;
+				var file = new FileInfo(System.IO.Path.Combine(directory, resource.Substring(prefix.Length)));
+				if (file.Exists) continue;
+				using var input = assembly.GetManifestResourceStream(resource);
+				var model = tcnParser.LoadXml(input);
+				model.File = file;
+				Models.TryAdd(model.Path, model);
 			}
 		}
 

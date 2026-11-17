@@ -25,56 +25,54 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Full editor integration checks failed (exit $LASTEXITCODE)." }
     }
     if ($Publish) {
-        $releaseName = 'compact-win-x64'
-        $expectedVersion = ([xml](Get-Content -LiteralPath 'MCSkin3D.csproj' -Raw)).Project.PropertyGroup.Version | Select-Object -First 1
-        $archiveName = "MCSkin3D-$expectedVersion-win-x64.zip"
+        $version = ([xml](Get-Content -LiteralPath 'MCSkin3D.csproj' -Raw)).Project.PropertyGroup.Version | Select-Object -First 1
         $publishRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'artifacts/publish'))
-        $stagingDirectory = Join-Path $publishRoot ('staging-' + [Guid]::NewGuid().ToString('N'))
-        $releaseDirectory = Join-Path $publishRoot $releaseName
-        foreach ($directory in @($stagingDirectory, $releaseDirectory)) {
-            if (-not [IO.Path]::GetFullPath($directory).StartsWith($publishRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
-                throw 'Publish directory must stay inside the workspace publish folder.'
-            }
-        }
-        & $dotnetCommand publish MCSkin3D.csproj -c $Configuration -r win-x64 --self-contained true -o $stagingDirectory -p:RestoreLockedMode=true
+        $stage = Join-Path $publishRoot ('staging-' + [Guid]::NewGuid().ToString('N'))
+        $minimal = Join-Path $stage 'minimal'
+        $full = Join-Path $stage 'full'
+        & $dotnetCommand publish MCSkin3D.csproj -c $Configuration -r win-x64 --self-contained true -o $minimal -p:RestoreLockedMode=true
         if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }
-        $looseBinaries = Get-ChildItem -LiteralPath $stagingDirectory -File | Where-Object { $_.Extension -in '.dll', '.pdb', '.json' }
-        if ($looseBinaries) { throw 'Single-file publishing unexpectedly left runtime files beside the executable.' }
-        if ((Test-Path -LiteralPath (Join-Path $stagingDirectory 'OfficialCapes')) -or
-            (Test-Path -LiteralPath (Join-Path $stagingDirectory 'Assets/OfficialCapes'))) {
-            throw 'Official cape previews must stay embedded; the portable file layout cannot include a cape asset folder.'
+        $exe = Join-Path $minimal 'MCSkin3D.exe'
+        if ((Get-Item -LiteralPath $exe).VersionInfo.ProductVersion -ne $version) { throw 'Executable and package versions differ.' }
+        # The installer manages just these two files, regardless of which download was installed.
+        $files = [ordered]@{}
+        foreach ($name in @('MCSkin3D.exe', 'Languages/English.lang')) {
+            $files[$name] = (Get-FileHash -LiteralPath (Join-Path $minimal $name) -Algorithm SHA256).Hash.ToLowerInvariant()
         }
-        $runtimeNote = 'The .NET runtime is included; no separate installation is needed.'
-        $applicationVersion = (Get-Item -LiteralPath (Join-Path $stagingDirectory 'MCSkin3D.exe')).VersionInfo.ProductVersion
-        if ($applicationVersion -ne $expectedVersion) { throw "Executable version $applicationVersion does not match package version $expectedVersion." }
-        [IO.File]::WriteAllText((Join-Path $stagingDirectory 'readme.txt'), "MCSkin3D $applicationVersion - Portable edition`r`n`r`nExtract the entire archive to a writable folder and run MCSkin3D.exe.`r`nKeep Languages, Models, Skins, Swatches and Overlays beside the executable.`r`nSettings are saved as settings.ini in the same folder.`r`n$runtimeNote`r`n`r`nUpgrading from 1.7.2: close the editor and back up your folder. Replace only MCSkin3D.exe, changes.txt, readme.txt and Languages/English.lang; add update-channel.txt and update-manifest.json. If English.lang is customized, keep it or merge the new keys instead.`r`nKeep settings.ini and all skins, swatches and custom assets. No files need to be deleted.`r`n")
-        $edition = 'portable'
-        [IO.File]::WriteAllText((Join-Path $stagingDirectory 'update-channel.txt'), $edition)
-        $manifestFiles = [ordered]@{}
-        foreach ($file in (Get-ChildItem -LiteralPath $stagingDirectory -Recurse -File | Sort-Object FullName)) {
-            $relative = $file.FullName.Substring($stagingDirectory.Length + 1).Replace('\', '/')
-            $manifestFiles[$relative] = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+        if (@(Get-ChildItem -LiteralPath $minimal -Recurse -File -Force).Count -ne $files.Count) {
+            throw 'Unexpected extra files in Minimal.'
         }
-        $manifest = [ordered]@{ Version = $applicationVersion; Edition = $edition; Files = $manifestFiles }
-        [IO.File]::WriteAllText((Join-Path $stagingDirectory 'update-manifest.json'), ($manifest | ConvertTo-Json -Depth 4))
-        if (Test-Path -LiteralPath $releaseDirectory) {
-            # Preserve prior releases, including any skins/settings created while testing them.
-            $previousDirectory = Join-Path $publishRoot ('previous-' + [Guid]::NewGuid().ToString('N'))
-            Move-Item -LiteralPath $releaseDirectory -Destination $previousDirectory
+        $manifest = [ordered]@{ Version = $version; Files = $files }
+        [IO.File]::WriteAllText((Join-Path $minimal 'update-manifest.json'), ($manifest | ConvertTo-Json -Depth 3 -Compress))
+        Copy-Item -LiteralPath $minimal -Destination $full -Recurse
+        $null = New-Item -ItemType Directory -Path (Join-Path $full 'Skins')
+        Copy-Item -LiteralPath 'bin_samples/Skins' -Destination (Join-Path $full 'Skins/Samples') -Recurse
+        Copy-Item -LiteralPath 'bin_samples/Overlays','setup_files/Swatches','bin_samples/samples license.txt' -Destination $full -Recurse
+        Copy-Item -LiteralPath 'setup_files/changes.txt','setup_files/license.txt','setup_files/thanks.txt','setup_files/privacy.txt' -Destination $full
+        Copy-Item -LiteralPath 'setup_files/Languages/README.md' -Destination (Join-Path $full 'Languages')
+        [IO.File]::WriteAllText((Join-Path $full 'readme.txt'), "MCSkin3D $version - Full`r`n`r`nExtract into a new writable folder and run MCSkin3D.exe. The Windows x64 executable includes the .NET runtime.`r`nFor a 1.7.2 upgrade, close the editor and copy the contents of Minimal into your existing folder. Keep a customized English.lang when prompted.`r`nSettings are created or upgraded when the editor starts. Your skins are stored in Skins or your configured library.`r`n")
+        $sums = foreach ($kind in @('minimal', 'full')) {
+            $from = Join-Path $stage $kind
+            $releaseDirectory = Join-Path $publishRoot $kind
+            # Keep any files users created while running an earlier build.
+            if (Test-Path -LiteralPath $releaseDirectory) {
+                $previous = Join-Path $publishRoot ('previous-' + $kind + '-' + [Guid]::NewGuid().ToString('N'))
+                if ([IO.Path]::GetDirectoryName($releaseDirectory) -ne $publishRoot -or
+                    [IO.Path]::GetDirectoryName($previous) -ne $publishRoot) { throw 'Invalid publish path.' }
+                Move-Item -LiteralPath $releaseDirectory -Destination $previous
+            }
+            if ([IO.Path]::GetDirectoryName($from) -ne $stage -or [IO.Path]::GetDirectoryName($releaseDirectory) -ne $publishRoot) { throw 'Invalid staging path.' }
+            Move-Item -LiteralPath $from -Destination $releaseDirectory
+            $name = "MCSkin3D-$version-win-x64-$kind.zip"
+            $archive = Join-Path $PSScriptRoot "artifacts/$name"
+            $temporary = Join-Path $stage ($name + '.tmp')
+            [IO.Compression.ZipFile]::CreateFromDirectory($releaseDirectory, $temporary, [IO.Compression.CompressionLevel]::Optimal, $false)
+            Move-Item -LiteralPath $temporary -Destination $archive -Force
+            (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + $name
+            Write-Host "Published $name"
         }
-        Move-Item -LiteralPath $stagingDirectory -Destination $releaseDirectory
-        $temporaryArchive = Join-Path $publishRoot ('package-' + [Guid]::NewGuid().ToString('N') + '.zip')
-        $compressionLevel = [IO.Compression.CompressionLevel]::Optimal
-        if ([Enum]::GetNames([IO.Compression.CompressionLevel]) -contains 'SmallestSize') {
-            $compressionLevel = [Enum]::Parse([IO.Compression.CompressionLevel], 'SmallestSize')
-        }
-        [IO.Compression.ZipFile]::CreateFromDirectory($releaseDirectory, $temporaryArchive, $compressionLevel, $false)
-        Move-Item -LiteralPath $temporaryArchive -Destination (Join-Path $PSScriptRoot "artifacts/$archiveName") -Force
-        $archivePath = Join-Path $PSScriptRoot "artifacts/$archiveName"
-        $checksumLine = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + $archiveName + "`n"
-        [IO.File]::WriteAllText(($archivePath + '.sha256'), $checksumLine)
-        [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'artifacts/SHA256SUMS.txt'), $checksumLine)
-        Write-Host "Release: $releaseDirectory (MCSkin3D.exe and adjacent assets)"
+        [IO.Directory]::Delete($stage, $false)
+        [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'artifacts/SHA256SUMS.txt'), (($sums -join "`n") + "`n"))
     }
 }
 finally { Pop-Location }

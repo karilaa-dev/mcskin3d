@@ -9,9 +9,10 @@ Version 2.0.0.0
 - Right/left first-person hand and sleeve preview with painting and undo support
 - Faster previews through texture, transparency and layer-geometry caching
 - Compact lighting controls, clearer toolbar icons and expanded regression coverage
-- Portable Windows x64 package with the .NET runtime included; 1.7.1/1.7.2 require a first manual upgrade
-- From 1.7.2: replace MCSkin3D.exe; add update-channel.txt and update-manifest.json for automatic updates
-- Also refresh unmodified Languages/English.lang and, optionally, changes.txt and readme.txt; keep all other files
+- Minimal includes the editor, English translation and a compact update manifest
+- Full also includes sample skins, palettes, overlays, readmes and licenses
+- Upgrade from 1.7.2 by copying Minimal into the existing application folder
+- On startup, create missing settings and add new preferences to existing settings
 
 Version 1.7.2
 - Combined skin and cape workspace with shared chronological undo and redo
