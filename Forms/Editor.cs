@@ -1997,18 +1997,80 @@ namespace MCSkin3D
 
 		public static void ShowUpdateDialog(IWin32Window owner)
 		{
-			if (MessageBox.Show(owner, GetLanguageString("M_UPDATEAVAILABLE"), GetLanguageString("B_CAP_QUESTION"), MessageBoxButtons.YesNo) == DialogResult.Yes)
-				Process.Start(new ProcessStartInfo(UpdateSystem.UpdateChecker.ReleasesUrl) { UseShellExecute = true });
+			if (owner is not Form editor || editor.IsDisposed || !editor.Visible || _updateDialogOpen)
+				return;
+			var release = Program.Context.Updater.LatestRelease;
+			if (release == null) return;
+			_updateDialogOpen = true;
+			try
+			{
+				using var dialog = new Forms.UpdateDialog(release);
+				if (dialog.ShowDialog(owner) != DialogResult.OK) return;
+				var prepared = dialog.PreparedUpdate;
+				try
+				{
+					if (editor is Editor skinEditor) skinEditor.CloseForUpdate();
+					else editor.Close();
+					if (editor.IsDisposed)
+					{
+						UpdateSystem.UpdateInstaller.PendingUpdate = prepared;
+						prepared = null;
+					}
+				}
+				finally { prepared?.Dispose(); }
+			}
+			finally { _updateDialogOpen = false; }
+		}
+
+		private static bool _updateDialogOpen;
+		private static bool _manualUpdateCheckRunning;
+		private bool _updateCloseApproved;
+
+		internal bool CloseForUpdate(Func<DialogResult> confirmSave = null)
+		{
+			try
+			{
+				FinishStroke();
+				if (RecursiveNodeIsDirty(treeView1.Nodes))
+				{
+					var choice = confirmSave != null ? confirmSave() : MessageBox.Show(this,
+						"Save your edited skins before installing the update?\n\nYes saves all changes. No discards unsaved changes. Cancel keeps the editor open.",
+						"Save before updating", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+					if (choice != DialogResult.Yes && choice != DialogResult.No) return false;
+					if (choice == DialogResult.Yes)
+					{
+						PerformSaveAll();
+						if (RecursiveNodeIsDirty(treeView1.Nodes))
+							throw new IOException("Some edited skins could not be saved. The update has not been installed.");
+					}
+				}
+				_updateCloseApproved = true;
+				Close();
+				return IsDisposed;
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show(this, "The editor could not close for the update. Your update has not been installed.\n\n" + ex.Message,
+					"MCSkin3D update", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return false;
+			}
+			finally { _updateCloseApproved = false; }
 		}
 
 		static async void CheckForUpdates(IWin32Window owner)
 		{
-			if (await Program.Context.Updater.CheckForUpdatesAsync())
-				ShowUpdateDialog(owner);
-			else if (!Program.Context.Updater.LastCheckSucceeded)
-				MessageBox.Show(owner, GetLanguageString("M_UPDATEFAILED"));
-			else
-				MessageBox.Show(owner, GetLanguageString("B_MSG_UPTODATE"));
+			if (_manualUpdateCheckRunning || _updateDialogOpen) return;
+			_manualUpdateCheckRunning = true;
+			try
+			{
+				bool available = await Program.Context.Updater.CheckForUpdatesAsync(true);
+				if (owner is Form form && (form.IsDisposed || !form.Visible)) return;
+				if (available) ShowUpdateDialog(owner);
+				else if (!Program.Context.Updater.LastCheckSucceeded)
+					MessageBox.Show(owner, GetLanguageString("M_UPDATEFAILED") + "\n\n" + Program.Context.Updater.LastError);
+				else MessageBox.Show(owner, GetLanguageString("B_MSG_UPTODATE"));
+			}
+			finally { _manualUpdateCheckRunning = false; }
 		}
 
 		private void checkForUpdatesToolStripMenuItem_Click(object sender, EventArgs e)
@@ -3366,7 +3428,7 @@ namespace MCSkin3D
 		protected override void OnFormClosing(FormClosingEventArgs e)
 		{
 			FinishStroke();
-			if (RecursiveNodeIsDirty(treeView1.Nodes))
+			if (!_updateCloseApproved && RecursiveNodeIsDirty(treeView1.Nodes))
 			{
 				if (
 					MessageBox.Show(this, GetLanguageString("C_UNSAVED"), GetLanguageString("C_UNSAVED_CAPTION"),

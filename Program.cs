@@ -69,9 +69,19 @@ namespace MCSkin3D
 		/// The main entry point for the application.
 		/// </summary>
 		[STAThread]
-		private static void Main()
+		private static void Main(string[] args)
 		{
-			MainCore();
+			if (UpdateSystem.UpdateInstaller.TryRunHelper(args)) return;
+			try
+			{
+				using var installationLock = UpdateSystem.UpdateInstaller.AcquireApplicationLock();
+				MainCore();
+			}
+			catch (IOException ex)
+			{
+				MessageBox.Show("The application folder is unavailable or an update is still installing. Please try again.\n\n" + ex.Message,
+					"MCSkin3D", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
 		}
 
 		[MethodImpl(MethodImplOptions.NoInlining)]
@@ -98,6 +108,7 @@ namespace MCSkin3D
 
 				ConfigureApplication();
 				Application.Run(new MCSkin3DAppContext());
+				UpdateSystem.UpdateInstaller.LaunchPendingUpdate();
 #if !DEBUG
 			}
 			catch (Exception ex)

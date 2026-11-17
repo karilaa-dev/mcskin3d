@@ -3,7 +3,7 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>MCSkin3D</RootNamespace>
     <AssemblyName>MCSkin3D</AssemblyName>
-    <Version>1.7.2</Version>
+    <Version>2.0.0.0</Version>
     <ApplicationIcon>Icon_new.ico</ApplicationIcon>
     <ApplicationManifest>build\app.manifest</ApplicationManifest>
     <PublishSingleFile>true</PublishSingleFile>
@@ -15,6 +15,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="BackgroundImage.cs" />
+    <Compile Include="Updater\UpdateInstaller.cs" />
+    <Compile Include="Forms\UpdateDialog.cs" />
     <Compile Include="Services\MinecraftSkinClient.cs" />
     <Compile Include="Services\SkinMoveSession.cs" />
     <Compile Include="Services\EditorHistory.cs" />

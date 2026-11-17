@@ -6,6 +6,7 @@ param(
     [ValidateSet('Portable', 'Lightweight', 'Both')][string]$Package = 'Both'
 )
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 Push-Location $PSScriptRoot
 try {
     $dotnetCommand = (Get-Command dotnet -ErrorAction Stop).Source
@@ -29,7 +30,8 @@ try {
         foreach ($packageKind in $packageKinds) {
             $selfContained = $packageKind -eq 'Portable'
             $releaseName = if ($selfContained) { 'compact-win-x64' } else { 'lightweight-win-x64' }
-            $archiveName = if ($selfContained) { 'MCSkin3D-win-x64.zip' } else { 'MCSkin3D-win-x64-light.zip' }
+            $expectedVersion = ([xml](Get-Content -LiteralPath 'MCSkin3D.csproj' -Raw)).Project.PropertyGroup.Version | Select-Object -First 1
+            $archiveName = if ($selfContained) { "MCSkin3D-$expectedVersion-win-x64.zip" } else { "MCSkin3D-$expectedVersion-win-x64-light.zip" }
             $publishRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'artifacts/publish'))
             $stagingDirectory = Join-Path $publishRoot ('staging-' + [Guid]::NewGuid().ToString('N'))
             $releaseDirectory = Join-Path $publishRoot $releaseName
@@ -48,7 +50,17 @@ try {
             }
             $runtimeNote = if ($selfContained) { 'The .NET runtime is included; no separate installation is needed.' } else { 'Requires the x64 .NET 10 Desktop Runtime. Official installer: https://dotnet.microsoft.com/en-us/download/dotnet/thank-you/runtime-desktop-10.0.11-windows-x64-installer' }
             $applicationVersion = (Get-Item -LiteralPath (Join-Path $stagingDirectory 'MCSkin3D.exe')).VersionInfo.ProductVersion
+            if ($applicationVersion -ne $expectedVersion) { throw "Executable version $applicationVersion does not match package version $expectedVersion." }
             [IO.File]::WriteAllText((Join-Path $stagingDirectory 'readme.txt'), "MCSkin3D $applicationVersion - $packageKind edition`r`n`r`nExtract the entire archive to a writable folder and run MCSkin3D.exe.`r`nKeep Languages, Models, Skins, Swatches and Overlays beside the executable.`r`nSettings are saved as settings.ini in the same folder.`r`n$runtimeNote`r`nBoth editions contain the same editor features, languages and sample assets.`r`n")
+            $edition = if ($selfContained) { 'portable' } else { 'lightweight' }
+            [IO.File]::WriteAllText((Join-Path $stagingDirectory 'update-channel.txt'), $edition)
+            $manifestFiles = [ordered]@{}
+            foreach ($file in (Get-ChildItem -LiteralPath $stagingDirectory -Recurse -File | Sort-Object FullName)) {
+                $relative = $file.FullName.Substring($stagingDirectory.Length + 1).Replace('\', '/')
+                $manifestFiles[$relative] = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            }
+            $manifest = [ordered]@{ Version = $applicationVersion; Edition = $edition; Files = $manifestFiles }
+            [IO.File]::WriteAllText((Join-Path $stagingDirectory 'update-manifest.json'), ($manifest | ConvertTo-Json -Depth 4))
             if (Test-Path -LiteralPath $releaseDirectory) {
                 # Preserve prior releases, including any skins/settings created while testing them.
                 $previousDirectory = Join-Path $publishRoot ('previous-' + [Guid]::NewGuid().ToString('N'))
@@ -56,8 +68,14 @@ try {
             }
             Move-Item -LiteralPath $stagingDirectory -Destination $releaseDirectory
             $temporaryArchive = Join-Path $publishRoot ('package-' + [Guid]::NewGuid().ToString('N') + '.zip')
-            [IO.Compression.ZipFile]::CreateFromDirectory($releaseDirectory, $temporaryArchive, [IO.Compression.CompressionLevel]::SmallestSize, $false)
+            $compressionLevel = [IO.Compression.CompressionLevel]::Optimal
+            if ([Enum]::GetNames([IO.Compression.CompressionLevel]) -contains 'SmallestSize') {
+                $compressionLevel = [Enum]::Parse([IO.Compression.CompressionLevel], 'SmallestSize')
+            }
+            [IO.Compression.ZipFile]::CreateFromDirectory($releaseDirectory, $temporaryArchive, $compressionLevel, $false)
             Move-Item -LiteralPath $temporaryArchive -Destination (Join-Path $PSScriptRoot "artifacts/$archiveName") -Force
+            $archivePath = Join-Path $PSScriptRoot "artifacts/$archiveName"
+            [IO.File]::WriteAllText(($archivePath + '.sha256'), ((Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + $archiveName + "`n"))
             Write-Host "Release: $releaseDirectory (MCSkin3D.exe and adjacent assets)"
         }
     }

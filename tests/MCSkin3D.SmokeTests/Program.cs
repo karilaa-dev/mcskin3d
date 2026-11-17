@@ -28,6 +28,17 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (Array.IndexOf(args, "--verify-release") >= 0)
+            return LiveReleaseChecks.Run(args);
+        if (Array.IndexOf(args, "--update-parent") >= 0)
+        {
+            string job = args[Array.IndexOf(args, "--update-parent") + 1];
+            using var installationLock = new FileStream(Path.Combine(Path.GetDirectoryName(job), ".mcskin3d-update.lock"),
+                FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
+            MCSkin3D.UpdateSystem.UpdateInstaller.PendingUpdate = new MCSkin3D.UpdateSystem.PreparedUpdate(job);
+            MCSkin3D.UpdateSystem.UpdateInstaller.LaunchPendingUpdate();
+            return 0;
+        }
         Directory.CreateDirectory(Scratch);
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.ThrowException);
         Application.EnableVisualStyles();
@@ -49,6 +60,9 @@ internal static class Program
         Run("PNG pixels and skin metadata survive save/reload", PngRoundTrip);
         Run("Skin moves preserve files, selection and library boundaries", () => SkinMoveChecks.Run(Check, Scratch));
         Run("Minecraft skin download resolves current endpoints and validates responses offline", () => SkinDownloadChecks.Run(Check));
+        Run("GitHub release discovery, editions and skipped versions", () => UpdateCheckerChecks.Run(Check));
+        Run("Update dialog, skip persistence and cancellation", () => UpdateDialogChecks.Run(Check));
+        Run("Update installation, file preservation, rollback and package validation", () => UpdateInstallerChecks.Run(Check, Scratch));
         Run("Editor-wide chronological history", () => WorkspaceChecks.History(Check));
         Run("Combined preview geometry, picking and native layout", () => WorkspaceChecks.GeometryAndPicking(Check));
         Run("First-person hand geometry, controls and preferences", () => FirstPersonChecks.Run(Check, Scratch));

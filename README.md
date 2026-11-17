@@ -1,6 +1,8 @@
-# MCSkin3D 1.7.2
+# MCSkin3D 2.0.0.0
 
 A Windows editor for painting Minecraft skins in 3D and 2D, migrated to .NET 10 and OpenTK 4.
+
+Version 2.0.0.0 adds an integrated GitHub updater, raised skin layers, first-person painting, Minecraft lighting controls and faster preview rendering. See [all changes since 1.7.2](docs/releases/v2.0.0.0.md).
 
 ## Build and run
 
@@ -20,8 +22,8 @@ The script builds the editor, language editor and regression checks with locked 
 
 `-Publish` produces two editions with identical editor features and assets:
 
-- **Portable:** `artifacts/MCSkin3D-win-x64.zip`, also ready to run in `artifacts/publish/compact-win-x64`. Includes the .NET runtime.
-- **Lightweight:** `artifacts/MCSkin3D-win-x64-light.zip`, also in `artifacts/publish/lightweight-win-x64`. Uses an installed **x64 .NET 10 Desktop Runtime**. This reduces download/application-folder size by sharing the runtime, rather than removing editor features. The runtime still occupies disk space wherever it is installed.
+- **Portable:** `artifacts/MCSkin3D-2.0.0.0-win-x64.zip`, also ready to run in `artifacts/publish/compact-win-x64`. Includes the .NET runtime.
+- **Lightweight:** `artifacts/MCSkin3D-2.0.0.0-win-x64-light.zip`, also in `artifacts/publish/lightweight-win-x64`. Uses an installed **x64 .NET 10 Desktop Runtime**. This reduces download/application-folder size by sharing the runtime, rather than removing editor features. The runtime still occupies disk space wherever it is installed.
 
 Both editions place `Languages`, `Models`, `Swatches`, `Skins`, `Overlays`, grass texture and documentation beside `MCSkin3D.exe`, with no `Data` wrapper. Native graphics libraries stay bundled. Extract the whole archive into a writable folder before running. Use `-Package Portable` or `-Package Lightweight` with `-Publish` to produce only one edition. A source build also needs the .NET 10 Desktop Runtime.
 
@@ -32,6 +34,16 @@ Both editions save preferences in `settings.ini` and skins in `Skins` beside the
 `-GraphicsTests` additionally checks rendered pixels, opens the actual splash and editor, and exercises rendering, painting, undo/redo, saving, skin import, tabs, languages and swatches using isolated sample copies. It requires an active Windows desktop and OpenGL 3.3 support; an unavailable display is reported separately from passing tests. Modern Visual Studio with .NET 10 support or the CLI can build the projects.
 
 The desktop compatibility target is Windows 10 x64 (22H2) and Windows 11 x64, with an OpenGL 3.3 compatibility driver. The executable declares Windows 10 compatibility and runs without administrator privileges. The code audit found no Windows 11-only APIs; WinForms handles the available DPI APIs on each Windows version. Actual startup and graphics tests ran on Windows 11 build 26200, so Windows 10 execution still needs a Windows 10 test machine. Microsoft's servicing support is a separate matter: its current [.NET Windows support matrix](https://learn.microsoft.com/en-us/dotnet/core/install/windows#supported-versions) lists supported Windows 10 LTSC/Enterprise releases rather than ordinary 22H2 editions.
+
+## Updates
+
+After the editor opens, MCSkin3D checks this repository's latest stable GitHub release in the background. A newer version opens a window with its changelog, **Update and restart**, **Close**, and **Skip this update**. Installing begins only when you choose Update and restart. Skipping remembers that version; later versions can still be offered. **Help > Check for updates** also shows versions you previously skipped.
+
+The updater downloads the package for your edition, verifies its size and SHA-256 checksum, and stages it before closing the editor. Unsaved edits go through the normal save prompt; canceling that prompt keeps the editor open. Installation preserves skins, settings, swatches and custom files. Unmodified factory files can be refreshed using the package manifest, while modified bundled assets are preserved. User files are never deleted. Replaced files are backed up, and an installation failure triggers rollback.
+
+Automatic installation is available in the published portable and lightweight editions, extracted into a writable folder. Source builds use a manual download instead. Both editions keep the same features; the lightweight edition still requires the x64 .NET 10 Desktop Runtime.
+
+**Upgrading from 1.7.1 or 1.7.2:** download 2.0.0.0 from [GitHub Releases](https://github.com/karilaa-dev/mcskin3d/releases) and extract it into a new writable folder. Those versions can open the release page but cannot install this first upgrade. Copy your `settings.ini`, skins, swatches and other custom assets from the old folder, keeping a backup. Future updates can be installed from the new update window.
 
 ## First-person preview
 
@@ -45,11 +57,13 @@ The pose follows Minecraft Java's resting empty hand, rendered at a fixed 70° i
 
 Click **3D Skin Layers** on the viewport toolbar, or enable **View > 3D Skin Layers**, to render player overlays using the [3D Skin Layers mod](https://github.com/tr7zw/3d-Skin-Layers)'s default geometry, UVs and proportions. Hats, jackets, sleeves and trouser overlays have full pixel depth and correctly joined corners. Transparent holes stay open and translucent pixels retain their alpha. Legacy skins support their hat layer, and higher-resolution skins use their actual pixels.
 
-**Minecraft Lighting** on the viewport toolbar toggles vanilla lighting without opening settings. Turning it off previews the original texture colors and hides the brightness slider while retaining its value, except in First Person where the disabled group remains visible to keep the hand stationary. The toggle appears in 3D, hybrid and first-person views when 3D Skin Layers is enabled, and stays synchronized with advanced settings.
+**Minecraft Lighting** on the viewport toolbar toggles vanilla lighting independently of 3D Skin Layers. It lights ordinary skins, flat overlays, raised layers, first-person hands and combined accessories. Turning it off previews the original texture colors and hides the lighting controls while retaining their values, except in First Person where the disabled controls remain visible to keep the hand stationary. The toggle appears in 3D, hybrid and first-person views.
 
-**Elytra** and **Brightness** are grouped in the tool-options area beside Fill/Brush options. They wrap at narrow widths and hide in 2D view or when their feature is off, retaining their values; First Person keeps its disabled Brightness group visible. Brightness uses Minecraft's **0-15 daylight levels**, defaulting to **8** (the nearest midpoint). It uses vanilla Minecraft's Overworld ambient light, nonlinear lightmap and fixed entity lighting, with game brightness at 100%. Level 0 retains the game's ambient light. Elytra spread appears only in combined elytra view.
+**Brightness** and **Lighting angle** occupy two compact rows beside Fill/Brush options. They wrap at narrow widths and hide in 2D view or when lighting is off, retaining their values; First Person keeps its disabled lighting controls visible. Brightness uses Minecraft's **0-15 daylight levels**, defaulting to **8** (the nearest midpoint), with Overworld ambient light and game brightness fixed at 100%. Level 0 retains the game's ambient light. **Surroundings**, enabled by default, also dims the background and grass; clear it to keep the environment fully bright. The separate **Elytra** spread control appears only in combined elytra view.
 
-Advanced controls are under **Options > 3D Skin Layers settings**: pixel/head/body scales, individual layers, render distance, **50–200% render resolution**, **Off/2x/4x/8x antialiasing**, and Minecraft game brightness (default 100%). Quality changes apply immediately to the 3D view; the texture sheet stays at native resolution. **Reset to defaults** restores all controls, including daylight level to 8; **Apply** saves them and updates the main slider. See [rendering details](docs/skin-layer-rendering.md).
+**Lighting angle** rotates the light directions from **-90° to 90°**. Drag the slider or enter a degree value; **Default** restores **0°** without changing brightness. The angle and surroundings preference are saved between launches.
+
+Advanced controls are under **Options > 3D Skin Layers settings**: pixel/head/body scales, individual layers, render distance, **50–200% render resolution**, and **Off/2x/4x/8x antialiasing**. Quality changes apply immediately to the 3D view; the texture sheet stays at native resolution. **Reset to defaults** restores layer and quality settings while preserving lighting preferences; **Apply** saves the settings. See [rendering details](docs/skin-layer-rendering.md).
 
 The option is off by default and remembered between launches. It works in 3D and hybrid views, including Skin + Cape. Paint raised pixels directly or use the 2D sheet; painting, erasing and undo refresh the geometry. The option changes the preview only, preserving the skin's PNG and model.
 

@@ -18,15 +18,6 @@ namespace MCSkin3D
 			Environment.CurrentDirectory = Path.GetFullPath(dataDirectory ?? AppContext.BaseDirectory);
 			GlobalSettings.Load();
 
-			try
-			{
-				if (Directory.Exists(GlobalSettings.GetDataURI("__updateFiles")))
-					Directory.Delete(GlobalSettings.GetDataURI("__updateFiles"), true);
-			}
-			catch
-			{
-			}
-
 			SplashForm = new Splash();
 			Updater = new UpdateSystem.UpdateChecker();
 

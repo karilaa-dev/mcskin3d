@@ -124,6 +124,9 @@ namespace MCSkin3D
 		[DefaultValue(true)]
 		public static bool AutoUpdate { get; set; }
 
+		[Savable, DefaultValue("")]
+		public static string SkippedUpdateVersion { get; set; } = "";
+
 		[Savable]
 		[DefaultValue(0)]
 		public static int Multisamples { get; set; }

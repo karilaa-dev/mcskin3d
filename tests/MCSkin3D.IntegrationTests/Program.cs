@@ -90,6 +90,7 @@ internal static partial class Program
                     // This check pumps native messages and can import the desktop's live
                     // modifier-key state; keep it after deterministic painting checks.
                     Run("Automatic updates do not block the editor", () => StartupUpdateChecks.Run(editor, Check));
+                    Run("Update restart saves edits and honors cancellation", UpdateShutdown);
                 }
                 Run("Clean shutdown saves isolated preferences", () =>
                 {

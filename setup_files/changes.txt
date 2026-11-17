@@ -1,3 +1,16 @@
+Version 2.0.0.0
+- GitHub update window with release changelog, Update and restart, Close, and Skip this update
+- Background checks for the latest stable release; manual checks also show skipped versions
+- Verified package downloads, preserved user files, installation backups and rollback on failure
+- Raised 3D skin layers with transparent pixels, joined corners and direct painting
+- Layer visibility, scale and distance controls; 50-200% render resolution and Off/2x/4x/8x antialiasing
+- Minecraft lighting for regular skins, raised layers, first-person hands and combined accessories
+- World-light brightness, saved lighting angle and optional surroundings lighting
+- Right/left first-person hand and sleeve preview with painting and undo support
+- Faster previews through texture, transparency and layer-geometry caching
+- Compact lighting controls, clearer toolbar icons and expanded regression coverage
+- Portable and lightweight Windows x64 editions; 1.7.1/1.7.2 require a first manual upgrade
+
 Version 1.7.2
 - Combined skin and cape workspace with shared chronological undo and redo
 - Continuous elytra spread slider and corrected accessory attachment

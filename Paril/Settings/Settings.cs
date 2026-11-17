@@ -152,7 +152,8 @@ namespace Paril.Settings
 
 		public void Save(string fileName)
 		{
-			var writer = new StreamWriter(fileName);
+			// Serialize first, then replace atomically: a failed preference save must not truncate existing settings.
+			using var writer = new StringWriter();
 
 			foreach (object v in Structures)
 			{
@@ -175,7 +176,23 @@ namespace Paril.Settings
 				writer.WriteLine();
 			}
 
-			writer.Close();
+			string destination = Path.GetFullPath(fileName);
+			string temporary = destination + ".tmp-" + Guid.NewGuid().ToString("N");
+			try
+			{
+				using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+				using (var output = new StreamWriter(stream))
+				{
+					output.Write(writer.ToString());
+					output.Flush();
+					stream.Flush(true);
+				}
+				File.Move(temporary, destination, true);
+			}
+			finally
+			{
+				if (File.Exists(temporary)) File.Delete(temporary);
+			}
 		}
 
 		public void LoadDefaults()
