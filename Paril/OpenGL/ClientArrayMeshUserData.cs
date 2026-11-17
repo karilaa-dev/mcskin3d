@@ -6,6 +6,6 @@ namespace Paril.OpenGL
 		public float[] VerticeArray;
 		public float[] TexCoordArray;
 		public float[] ColorArray;
-		public byte[] IndiceArray;
+		public uint[] IndiceArray;
 	}
 }

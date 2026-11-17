@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using MCSkin3D;
 using OpenTK.Mathematics;
 using Paril.OpenGL;
 
@@ -9,6 +10,12 @@ internal static class RendererChecks
 {
     internal static void Run(Action<bool, string> check)
     {
+        int[] daylight = { 38, 53, 69, 86, 104, 122, 141, 160, 179, 198, 215, 231, 244, 252, 255, 255 };
+        for (int level = 0; level < daylight.Length; level++)
+            check(Math.Abs(MinecraftPreviewLighting.Daylight(level) * 255 - daylight[level]) < .001f,
+                "Minecraft daylight lightmap texel matches at level " + level);
+        check(MinecraftPreviewLighting.Daylight(-1) == MinecraftPreviewLighting.Daylight(0) &&
+            MinecraftPreviewLighting.Daylight(16) == MinecraftPreviewLighting.Daylight(15), "World light clamps to 0-15");
         // CPU array preparation must be testable without creating an OpenGL window.
         var renderer = (ClientArrayRenderer)RuntimeHelpers.GetUninitializedObject(typeof(ClientArrayRenderer));
         var mesh = new Mesh("two quads")
@@ -27,7 +34,7 @@ internal static class RendererChecks
             "Renderer must preserve face order and vertex positions");
         check(data.TexCoordArray.SequenceEqual(new float[] { 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 0 }),
             "Renderer must preserve each face's texture orientation");
-        check(data.IndiceArray.SequenceEqual(new byte[] { 0, 1, 2, 3, 7, 6, 5, 4 }),
+        check(data.IndiceArray.SequenceEqual(new uint[] { 0, 1, 2, 3, 7, 6, 5, 4 }),
             "Renderer must offset later face indices without changing winding");
 
         renderer.UpdateUserData(mesh);

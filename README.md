@@ -33,6 +33,18 @@ Both editions save preferences in `settings.ini` and skins in `Skins` beside the
 
 The desktop compatibility target is Windows 10 x64 (22H2) and Windows 11 x64, with an OpenGL 3.3 compatibility driver. The executable declares Windows 10 compatibility and runs without administrator privileges. The code audit found no Windows 11-only APIs; WinForms handles the available DPI APIs on each Windows version. Actual startup and graphics tests ran on Windows 11 build 26200, so Windows 10 execution still needs a Windows 10 test machine. Microsoft's servicing support is a separate matter: its current [.NET Windows support matrix](https://learn.microsoft.com/en-us/dotnet/core/install/windows#supported-versions) lists supported Windows 10 LTSC/Enterprise releases rather than ordinary 22H2 editions.
 
+## 3D skin layers
+
+Click **3D Skin Layers** on the viewport toolbar, or enable **View > 3D Skin Layers**, to render player overlays using the [3D Skin Layers mod](https://github.com/tr7zw/3d-Skin-Layers)'s default geometry, UVs and proportions. Hats, jackets, sleeves and trouser overlays have full pixel depth and correctly joined corners. Transparent holes stay open and translucent pixels retain their alpha. Legacy skins support their hat layer, and higher-resolution skins use their actual pixels.
+
+**Minecraft Lighting** on the viewport toolbar toggles vanilla lighting without opening settings. Turning it off previews the original texture colors and hides the brightness slider while retaining its value. The toggle appears in 3D and hybrid views when 3D Skin Layers is enabled, and stays synchronized with advanced settings.
+
+**Elytra** and **Brightness** are grouped in the tool-options area beside Fill/Brush options. They wrap at narrow widths and hide in 2D view or when their feature is off, retaining their values. Brightness uses Minecraft's **0-15 daylight levels**, defaulting to **8** (the nearest midpoint). It uses vanilla Minecraft's Overworld ambient light, nonlinear lightmap and fixed entity lighting, with game brightness at 100%. Level 0 retains the game's ambient light. Elytra spread appears only in combined elytra view.
+
+Advanced controls are under **Options > 3D Skin Layers settings**: pixel/head/body scales, individual layers, render distance, **50–200% render resolution**, **Off/2x/4x/8x antialiasing**, and Minecraft game brightness (default 100%). Quality changes apply immediately to the 3D view; the texture sheet stays at native resolution. **Reset to defaults** restores all controls, including daylight level to 8; **Apply** saves them and updates the main slider. See [rendering details](docs/skin-layer-rendering.md).
+
+The option is off by default and remembered between launches. It works in 3D and hybrid views, including Skin + Cape. Paint raised pixels directly or use the 2D sheet; painting, erasing and undo refresh the geometry. The option changes the preview only, preserving the skin's PNG and model.
+
 ## Skin + Cape workspace
 
 Enable **Skin + Cape** from the View menu or viewport toolbar. Choose a player skin and a cape from the two library selectors, then use **Edit Skin** or **Edit Cape** to choose the texture to paint. Import new PNGs with the existing library commands first; the selectors list compatible Steve/Alex and Cape/Elytra documents based on their assigned models.

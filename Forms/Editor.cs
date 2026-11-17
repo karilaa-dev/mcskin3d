@@ -79,6 +79,7 @@ namespace MCSkin3D
 		private bool _mouseIsDown;
 		private Point _mousePoint;
 		private Texture _previewPaint;
+		private readonly PreviewRenderTarget _previewRenderTarget = new();
 		private int _selectedBackground;
 		private ToolIndex _selectedTool;
 		static Texture _cubeSides;
@@ -1042,6 +1043,7 @@ namespace MCSkin3D
 			float nearest = float.MaxValue;
 			Face? hitFace = null;
 			Skin hitDocument = null;
+			Point? layerPixel = null;
 			Span<Vector3> vertices = stackalloc Vector3[4];
 			Span<Vector3> hitVerts = stackalloc Vector3[4];
 			foreach (var item in _scene)
@@ -1049,6 +1051,15 @@ namespace MCSkin3D
 				{
 					if (!item.Model.PartsEnabled[meshIndex]) continue;
 					var mesh = item.Model.Meshes[meshIndex];
+					if (item.UseSkinLayers && item.SkinLayers.TryGetValue(mesh, out var layer) &&
+						layer.TryPick(CameraPosition, outputFar, out float layerDistance, out var pickedPixel))
+					{
+						if (layerDistance < nearest)
+						{
+							nearest = layerDistance; layerPixel = pickedPixel; hitDocument = item.Document;
+							continue;
+						}
+					}
 					foreach (var face in mesh.Faces)
 					{
 						if (face.Vertices.Length > vertices.Length)
@@ -1066,11 +1077,13 @@ namespace MCSkin3D
 								TryPickUV(face, verts, CameraPosition, outputFar - CameraPosition, out var companionUv) &&
 								item.TransparentAt(companionUv)) continue;
 							nearest = dist; hitFace = face; hitDocument = item.Document;
+							layerPixel = null;
 							verts.CopyTo(hitVerts);
 						}
 					}
 				}
 			// The companion participates in depth testing, but cannot receive brush strokes.
+			if (layerPixel.HasValue && hitDocument == _lastSkin) { hitPixel = layerPixel.Value; return true; }
 			if (!hitFace.HasValue || hitDocument != _lastSkin) return false;
 			if (!TryPickUV(hitFace.Value, hitVerts, CameraPosition, outputFar - CameraPosition, out var uv)) return false;
 			hitPixel = new Point(Math.Clamp((int)Math.Floor(uv.X * hitDocument.Width), 0, hitDocument.Width - 1),
@@ -1239,8 +1252,7 @@ namespace MCSkin3D
 				GL.PushMatrix();
 				if (_currentViewMode == ViewMode.Perspective)
 				{
-					Setup3D(new Rectangle(0, 0, Renderer.Width, Renderer.Height));
-					DrawPlayer(_previewPaint, skin);
+					DrawPreview3D(new Rectangle(0, 0, Renderer.Width, Renderer.Height), _previewPaint, skin);
 
 					int sizeOfMiniport = 120;
 					float sizeOfCube = sizeOfMiniport;
@@ -1280,8 +1292,7 @@ namespace MCSkin3D
 				{
 					var halfHeight = (int)Math.Ceiling(Renderer.Height / 2.0f);
 
-					Setup3D(new Rectangle(0, 0, Renderer.Width, halfHeight));
-					DrawPlayer(_previewPaint, skin);
+					DrawPreview3D(new Rectangle(0, 0, Renderer.Width, halfHeight), _previewPaint, skin);
 
 					Setup2D(new Rectangle(0, halfHeight, Renderer.Width, halfHeight));
 					if (CombinedEnabled) DrawWorkspace2D();
@@ -1354,6 +1365,17 @@ namespace MCSkin3D
 			CameraPosition = Vector3.TransformPosition(Vector3.Zero, cameraMatrix);
 		}
 
+		private void DrawPreview3D(Rectangle viewport, Texture texture, Skin skin)
+		{
+			_previewRenderTarget.Begin(viewport.Size, PreviewRenderOptions.Current);
+			try
+			{
+				Setup3D(viewport);
+				DrawPlayer(texture, skin);
+			}
+			finally { _previewRenderTarget.End(viewport); }
+		}
+
 		private void Setup3D(Rectangle viewport)
 		{
 			_currentViewport = viewport;
@@ -1367,7 +1389,7 @@ namespace MCSkin3D
 			GL.MatrixMode(MatrixMode.Projection);
 			GL.LoadIdentity();
 
-			GL.Viewport(viewport);
+			GL.Viewport(_previewRenderTarget.Active ? new Rectangle(0, 0, _previewRenderTarget.Width, _previewRenderTarget.Height) : viewport);
 			GL.MultMatrix(ref _projectionMatrix);
 
 			GL.MatrixMode(MatrixMode.Modelview);
@@ -1405,16 +1427,8 @@ namespace MCSkin3D
 		{
 			_opening = !_opening;
 
-			if (_opening)
-			{
-				splitContainer4.SplitterDistance = 74;
-				toolStripButton1.Image = Resources.arrow_Up_16xLG;
-			}
-			else
-			{
-				splitContainer4.SplitterDistance = splitContainer4.Panel1MinSize;
-				toolStripButton1.Image = Resources.arrow_Down_16xLG;
-			}
+			toolStripButton1.Image = _opening ? Resources.arrow_Up_16xLG : Resources.arrow_Down_16xLG;
+			UpdateToolOptionsHeight();
 		}
 
 		public void RotateView(Point delta, float factor)
@@ -2070,6 +2084,8 @@ namespace MCSkin3D
 
 		private void SetSampleMenuItem(int samples)
 		{
+			samples = (PreviewRenderOptions.Defaults with { Samples = samples }).Validated().Samples;
+			xToolStripMenuItem.Visible = false; // One sample is equivalent to Off.
 			if (_antialiasOpts == null)
 			{
 				_antialiasOpts = new[]
@@ -2106,36 +2122,32 @@ namespace MCSkin3D
 
 			GlobalSettings.Multisamples = samples;
 			_antialiasOpts[index].Checked = true;
+			Renderer?.Invalidate();
 		}
 
 		private void xToolStripMenuItem4_Click(object sender, EventArgs e)
 		{
 			SetSampleMenuItem(0);
-			MessageBox.Show(this, GetLanguageString("B_MSG_ANTIALIAS"));
 		}
 
 		private void xToolStripMenuItem_Click(object sender, EventArgs e)
 		{
 			SetSampleMenuItem(1);
-			MessageBox.Show(this, GetLanguageString("B_MSG_ANTIALIAS"));
 		}
 
 		private void xToolStripMenuItem1_Click(object sender, EventArgs e)
 		{
 			SetSampleMenuItem(2);
-			MessageBox.Show(this, GetLanguageString("B_MSG_ANTIALIAS"));
 		}
 
 		private void xToolStripMenuItem2_Click(object sender, EventArgs e)
 		{
 			SetSampleMenuItem(4);
-			MessageBox.Show(this, GetLanguageString("B_MSG_ANTIALIAS"));
 		}
 
 		private void xToolStripMenuItem3_Click(object sender, EventArgs e)
 		{
 			SetSampleMenuItem(8);
-			MessageBox.Show(this, GetLanguageString("B_MSG_ANTIALIAS"));
 		}
 
 		public static string GetLanguageString(string id)
@@ -3191,7 +3203,8 @@ namespace MCSkin3D
 			_selectedTool = index;
 			index.MenuItem.Checked = index.Button.Checked = true;
 
-			splitContainer4.Panel1.Controls.Clear();
+			_toolOptionsArea.SuspendLayout();
+			if (oldTool?.OptionsPanel != null) _toolOptionsArea.Controls.Remove(oldTool.OptionsPanel);
 
 			if (oldTool != null && oldTool.OptionsPanel != null)
 				oldTool.OptionsPanel.BoxHidden();
@@ -3200,9 +3213,14 @@ namespace MCSkin3D
 
 			if (_selectedTool.OptionsPanel != null)
 			{
-				_selectedTool.OptionsPanel.Dock = DockStyle.Fill;
-				splitContainer4.Panel1.Controls.Add(_selectedTool.OptionsPanel);
+				var options = _selectedTool.OptionsPanel;
+				options.Dock = DockStyle.None;
+				options.Margin = new Padding(0);
+				_toolOptionsArea.Controls.Add(options);
+				_toolOptionsArea.Controls.SetChildIndex(options, 0);
 			}
+			_toolOptionsArea.ResumeLayout(true);
+			UpdateToolOptionsHeight();
 
 			toolStripStatusLabel1.Text = index.Tool.GetStatusLabelText();
 		}
@@ -3306,6 +3324,16 @@ namespace MCSkin3D
 				GlobalSettings.SkinDirectories = _newSkinDirs;
 
 			base.OnFormClosing(e);
+		}
+
+		protected override void OnFormClosed(FormClosedEventArgs e)
+		{
+			if (Renderer != null && !Renderer.IsDisposed && Renderer.IsHandleCreated)
+			{
+				Renderer.MakeCurrent();
+				_previewRenderTarget.Dispose();
+			}
+			base.OnFormClosed(e);
 		}
 
 		protected override void OnLoad(EventArgs e)
@@ -3540,6 +3568,7 @@ namespace MCSkin3D
 			perspectiveToolStripButton.Checked = orthographicToolStripButton.Checked = hybridToolStripButton.Checked = false;
 			perspectiveToolStripMenuItem.Checked = textureToolStripMenuItem.Checked = hybridViewToolStripMenuItem.Checked = false;
 			_currentViewMode = newMode;
+			RefreshWorkspaceControls();
 			if (changed && CombinedEnabled) FitWorkspace(false);
 
 			switch (_currentViewMode)
@@ -4352,7 +4381,7 @@ namespace MCSkin3D
 				APIVersion = new System.Version(3, 3),
 				Profile = ContextProfile.Compatability,
 				Flags = ContextFlags.Default,
-				NumberOfSamples = GlobalSettings.Multisamples
+				NumberOfSamples = 0 // MSAA is applied to the 3D framebuffer and can change live.
 			});
 
 			Renderer.BackColor = Color.Black;

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using MCSkin3D.Models;
 using OpenTK.Mathematics;
@@ -16,6 +17,26 @@ namespace MCSkin3D
         public Model Model;
         public RectangleF Sheet;
         public byte[] Alpha;
+        public readonly Dictionary<Mesh, SkinLayerGeometry> SkinLayers = new();
+        public bool UseSkinLayers => GlobalSettings.SkinLayers3D &&
+            (Editor.CameraPosition - new Vector3(0, 24, 0)).LengthSquared <= MathF.Pow(SkinLayerOptions.Current.Distance * 16, 2);
+
+        public void UpdateSkinLayers()
+        {
+            if (!GlobalSettings.SkinLayers3D || Role(Document) != EditingTarget.Skin)
+            {
+                SkinLayers.Clear();
+                return;
+            }
+            foreach (var mesh in Model.Meshes)
+            {
+                if ((!mesh.IsArmor && mesh.Part != ModelPart.Helmet) || mesh.IsSolid) continue;
+                if (!SkinLayerOptions.Current.Enabled(mesh.Part)) { SkinLayers.Remove(mesh); continue; }
+                if (!SkinLayers.TryGetValue(mesh, out var layer))
+                    SkinLayers.Add(mesh, layer = new SkinLayerGeometry(mesh));
+                layer.Update(Alpha, Document.Width, Document.Height);
+            }
+        }
 
         public void CaptureAlpha(ColorGrabber pixels)
         {

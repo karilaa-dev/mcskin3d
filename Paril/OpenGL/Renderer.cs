@@ -59,16 +59,16 @@ namespace Paril.OpenGL
 			GL.CullFace(TriangleFace.Front);
 
 			foreach (Mesh mesh in _opaqueMeshes)
-				RenderMesh(mesh);
+				RenderWithAlphaTest(mesh);
 
 			GL.Enable(EnableCap.Blend);
 
 			foreach (Mesh mesh in _transparentMeshes)
 			{
 				GL.CullFace(TriangleFace.Back);
-				RenderMesh(mesh);
+				RenderWithAlphaTest(mesh);
 				GL.CullFace(TriangleFace.Front);
-				RenderMesh(mesh);
+				RenderWithAlphaTest(mesh);
 			}
 
 			GL.Disable(EnableCap.Blend);
@@ -128,6 +128,16 @@ namespace Paril.OpenGL
 		}
 
 		public abstract void RenderMesh(Mesh mesh);
+		private void RenderWithAlphaTest(Mesh mesh)
+		{
+			if (mesh.IsSkinLayer)
+			{
+				OpenTK.Graphics.OpenGL.GL.Enable(OpenTK.Graphics.OpenGL.EnableCap.AlphaTest);
+				OpenTK.Graphics.OpenGL.GL.AlphaFunc(OpenTK.Graphics.OpenGL.AlphaFunction.Gequal, .1f);
+			}
+			RenderMesh(mesh);
+			if (mesh.IsSkinLayer) OpenTK.Graphics.OpenGL.GL.Disable(OpenTK.Graphics.OpenGL.EnableCap.AlphaTest);
+		}
 		public virtual IMeshUserData CreateUserData(Mesh mesh) { return null; }
 
 		// Some change occured in the mesh which requires an update to its userdata.

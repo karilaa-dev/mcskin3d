@@ -43,6 +43,33 @@ namespace MCSkin3D
 		public static bool Ghost { get; set; }
 
 		[Savable]
+		[DefaultValue(false)]
+		public static bool SkinLayers3D { get; set; }
+
+		[Savable, DefaultValue(1.15f)]
+		public static float SkinLayerPixelSize { get; set; } = 1.15f;
+		[Savable, DefaultValue(1.18f)]
+		public static float SkinLayerHeadSize { get; set; } = 1.18f;
+		[Savable, DefaultValue(1.05f)]
+		public static float SkinLayerBodyWidth { get; set; } = 1.05f;
+		[Savable, DefaultValue(true)]
+		public static bool SkinLayerFastRender { get; set; } = true;
+		[Savable, DefaultValue(14)]
+		public static int SkinLayerDistance { get; set; } = 14;
+		[Savable, DefaultValue(63)]
+		public static int SkinLayerParts { get; set; } = 63;
+
+		[Savable, DefaultValue(100)]
+		public static int PreviewResolution { get; set; } = 100;
+		[Savable, DefaultValue(true)]
+		public static bool MinecraftLighting { get; set; } = true;
+		[Savable, DefaultValue(100)]
+		public static int PreviewGameBrightness { get; set; } = 100;
+		// A distinct key keeps old percentage fill values from becoming world-light levels.
+		[Savable, DefaultValue(8)]
+		public static int PreviewLightLevel { get; set; } = 8;
+
+		[Savable]
 		[DefaultValue("")]
 		public static string LastSkin { get; set; }
 

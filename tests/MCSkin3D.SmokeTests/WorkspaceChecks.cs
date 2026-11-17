@@ -234,6 +234,7 @@ internal static class WorkspaceChecks
         VerifyPixelRouting(editor, scene, skinDoc, capeDoc, cape, check);
         // Exercise native layout without creating or rendering an OpenGL context.
         var bar = (FlowLayoutPanel)typeof(Editor).GetField("_workspaceBar", Private).GetValue(editor);
+        Set("_currentViewMode", ViewMode.Perspective);
         typeof(Editor).GetProperty("AccessoryPresentation").SetValue(editor, AccessoryView.Elytra);
         typeof(Editor).GetMethod("RefreshWorkspaceControls", Private).Invoke(editor, null);
         bar.Visible = true;

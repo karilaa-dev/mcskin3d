@@ -45,6 +45,7 @@ internal static class Program
         Run("Square/wheel preference, hue/alpha and both color tabs stay synchronized", PickerToggle);
         Run("Model XML export/import and compressed TCN import", ModelRoundTrip);
         Run("Renderer geometry and reusable ghost color buffers", () => RendererChecks.Run(Check));
+        Run("3D skin layer geometry, transparency, picking and cache", () => SkinLayerChecks.Run(Check, Scratch));
         Run("PNG pixels and skin metadata survive save/reload", PngRoundTrip);
         Run("Skin moves preserve files, selection and library boundaries", () => SkinMoveChecks.Run(Check, Scratch));
         Run("Minecraft skin download resolves current endpoints and validates responses offline", () => SkinDownloadChecks.Run(Check));

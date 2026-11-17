@@ -67,21 +67,27 @@ internal static partial class Program
                 timer.Stop();
                 using var keyboardState = new IsolatedKeyboardState();
                 Run("Real splash/application startup", Startup);
-                if (args.Contains("--benchmark")) Run("Picking performance and deterministic results", BenchmarkPicking);
-                Run("Perspective, texture and hybrid OpenGL frames", Rendering);
-                Run("Texture pixel formats, reload and resource lifetime", () => { editor.Renderer.MakeCurrent(); TextureChecks.Run(Check); });
-                Run("All tabs, square/wheel and English localization", TabsAndLanguage);
-                Run("Pencil through viewport, undo, redo, save and reload", EditSaveReload);
-                Run("Eraser, eyedropper and fill through viewport", MoreEditingTools);
-                Run("Move edited skin preserves undo, texture and save destination", MoveEditedSkin);
-                Run("Tool selection, camera and model visibility", ToolsAndModel);
-                Run("Loaded swatches, selection and persistence", Swatches);
-                Run("Clone and import PNG into skin tree", ImportClone);
-                Run("Combined workspace painting, swaps, poses and global undo", CombinedWorkspace);
-                Run("Official cape rendering, pixel protection and visibility", OfficialCapePreview);
-                // This check pumps native messages and can import the desktop's live
-                // modifier-key state; keep it after deterministic painting checks.
-                Run("Automatic updates do not block the editor", () => StartupUpdateChecks.Run(editor, Check));
+                if (args.Contains("--render-quality")) Run("Minecraft colors, resolution and antialiasing", RenderQuality);
+                else
+                {
+                    if (args.Contains("--benchmark")) Run("Picking performance and deterministic results", BenchmarkPicking);
+                    Run("Perspective, texture and hybrid OpenGL frames", Rendering);
+                    Run("Texture pixel formats, reload and resource lifetime", () => { editor.Renderer.MakeCurrent(); TextureChecks.Run(Check); });
+                    Run("All tabs, square/wheel and English localization", TabsAndLanguage);
+                    Run("Pencil through viewport, undo, redo, save and reload", EditSaveReload);
+                    Run("Eraser, eyedropper and fill through viewport", MoreEditingTools);
+                    Run("Move edited skin preserves undo, texture and save destination", MoveEditedSkin);
+                    Run("Tool selection, camera and model visibility", ToolsAndModel);
+                    Run("Loaded swatches, selection and persistence", Swatches);
+                    Run("Clone and import PNG into skin tree", ImportClone);
+                    Run("Combined workspace painting, swaps, poses and global undo", CombinedWorkspace);
+                    Run("Official cape rendering, pixel protection and visibility", OfficialCapePreview);
+                    Run("3D skin layer rendering, editing, undo and preference", SkinLayers3D);
+                    Run("Minecraft colors, resolution and antialiasing", RenderQuality);
+                    // This check pumps native messages and can import the desktop's live
+                    // modifier-key state; keep it after deterministic painting checks.
+                    Run("Automatic updates do not block the editor", () => StartupUpdateChecks.Run(editor, Check));
+                }
                 Run("Clean shutdown saves isolated preferences", () =>
                 {
                     Call(editor, "PerformSaveAll");

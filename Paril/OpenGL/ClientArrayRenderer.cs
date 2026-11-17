@@ -47,7 +47,7 @@ namespace Paril.OpenGL
 			GL.TexCoordPointer(2, TexCoordPointerType.Float, 0, data.TexCoordArray);
 			GL.ColorPointer(4, ColorPointerType.Float, 0, data.ColorArray);
 
-			GL.DrawElements(mesh.Mode, data.IndiceArray.Length, DrawElementsType.UnsignedByte, data.IndiceArray);
+			GL.DrawElements(mesh.Mode, data.IndiceArray.Length, DrawElementsType.UnsignedInt, data.IndiceArray);
 
 			GL.PopMatrix();
 		}
@@ -76,7 +76,7 @@ namespace Paril.OpenGL
 
 			data.VerticeArray = new float[vertexCount * 3];
 			data.TexCoordArray = new float[texCoordCount * 2];
-			data.IndiceArray = new byte[indexCount];
+			data.IndiceArray = new uint[indexCount];
 
 			int vi = 0;
 			int ti = 0;
@@ -96,7 +96,7 @@ namespace Paril.OpenGL
 					data.TexCoordArray[ti++] = texCoord.Y;
 				}
 				foreach (var index in f.Indices)
-					data.IndiceArray[ii++] = (byte)(index + vertexOffset);
+					data.IndiceArray[ii++] = (uint)(index + vertexOffset);
 				vertexOffset += f.Vertices.Length;
 			}
 
@@ -112,12 +112,15 @@ namespace Paril.OpenGL
 
 			// Ghost visibility changes only the colors; keep the client-side buffer reusable.
 			float alpha = mesh.DrawTransparent ? 0.25f : 1.0f;
-			for (int i = 0; i < data.ColorArray.Length; i += 4)
+			int i = 0;
+			foreach (var face in mesh.Faces)
 			{
-				data.ColorArray[i] = 1.0f;
-				data.ColorArray[i + 1] = 1.0f;
-				data.ColorArray[i + 2] = 1.0f;
-				data.ColorArray[i + 3] = alpha;
+				float brightness = mesh.FaceBrightness(face);
+				for (int vertex = 0; vertex < face.Vertices.Length; ++vertex, i += 4)
+				{
+					data.ColorArray[i] = data.ColorArray[i + 1] = data.ColorArray[i + 2] = brightness;
+					data.ColorArray[i + 3] = alpha;
+				}
 			}
 		}
 	}

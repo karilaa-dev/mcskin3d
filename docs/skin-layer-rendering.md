@@ -1,0 +1,36 @@
+# 3D Skin Layers rendering
+
+The reference is [tr7zw/3d-Skin-Layers at 80f19a0](https://github.com/tr7zw/3d-Skin-Layers/tree/80f19a0cdc3091726f2885eb60c12ba2b7a4700c), using its default player settings. The implementation follows `SolidPixelWrapper`, `CustomizableCube`, `SkinUtil`, and `OffsetProvider`. No upstream Java implementation is shipped in the application.
+
+Each nonzero-alpha overlay pixel has a full voxel. Neighbor visibility distinguishes opaque and translucent pixels, wraps across cuboid edges, omits buried backs and trims shared corner walls into triangles. The starting corner and full pixel UV rectangle match the mod, including trimmed faces. Rendering uses Minecraft's explicit `0,1,2,2,3,0` quad triangulation, with winding reversed for editor culling, and the original direction/pixel/face submission order. This matters for overlapping translucent samples under MSAA. Default scales are 1.15 for pixels, 1.05 for torso width and 1.18 for the head. Limb height is 1.035, with the mod's arm and head pivot corrections. Fast rendering batches the exterior into a textured cuboid while retaining the same side geometry and picking coordinates.
+
+**Options > 3D Skin Layers settings** exposes three scales, six layer toggles, 3D render distance (5–40 blocks), render resolution (50–200%), antialiasing (Off/2x/4x/8x MSAA), and lighting controls. Reset restores all defaults in the dialog; Apply saves them, and Cancel leaves settings unchanged. Fast face batching is an internal optimization, not a quality control. A disabled layer or a player beyond the distance threshold uses the ordinary flat layer. The editor has no first-person camera or standalone skull preview, so first-person/skull scales and Minecraft-specific Iris/Sodium compatibility switches are not exposed.
+
+## Colors and image quality
+
+The visual target is **vanilla Minecraft at 100% in-game brightness**. The base skin, flat overlays, raised layers and combined accessories share the same lighting when Minecraft lighting is enabled. No extra editor fill light is added. The reference is the [official Minecraft client](https://piston-data.mojang.com/v1/objects/e877b6a07acd633fb3bb475002175cec036e7b87/client.jar), SHA-1 `e877b6a07acd633fb3bb475002175cec036e7b87`, specifically `Lightmap`, `LightmapRenderStateExtractor`, `Lighting`, `assets/minecraft/shaders/core/lightmap.fsh`, `assets/minecraft/shaders/include/light.glsl`, the Overworld dimension attributes and the day timeline.
+
+**Brightness uses world-light levels 0-15**, with an integer readout and a default of **8**, the nearest step to the midpoint. Brightness and Elytra groups live beside Fill/Brush settings in the tool-options area. They wrap in narrow windows, remain available across tool switches, and follow the tool-area collapse button. Both hide in 2D without losing their values. Brightness requires 3D Skin Layers and Minecraft lighting; elytra spread requires combined elytra mode. The **Minecraft Lighting** toolbar button toggles the same preference as advanced settings, retaining the light level and hiding its slider when lighting is off. The button appears whenever 3D Skin Layers is enabled in a 3D or hybrid view. Applying Reset enables lighting and restores level 8 and game brightness 100%.
+
+The mod's [`CustomizableModelPart`](https://github.com/tr7zw/3d-Skin-Layers/blob/80f19a0cdc3091726f2885eb60c12ba2b7a4700c/src/main/java/dev/tr7zw/skinlayers/render/CustomizableModelPart.java) passes Minecraft's packed world light through to its vertices. Minecraft has separate sky and block light channels. The main slider selects **sky light**, under **Overworld noon**, with **block light 0**, and no weather, night vision, darkness or boss effects. This is a reproducible vanilla lighting setup, not a reconstruction of any world screenshot. Torch light, time-of-day colors, fog and shader packs are outside this preview's scope.
+
+The Minecraft Overworld has an ambient light color of **#0a0a0a**. This is added even when both world-light channels are zero. For neutral daylight, the shader normalizes the level by 15, applies `n / (4 - 3*n)`, adds `10/255` ambient light, clamps to 0-1, and blends toward `1 - (1-c)^4` using the game's brightness/gamma setting. It then stores the result in an RGBA8 lightmap.
+
+At 100% game brightness, the calculated 16 grayscale lightmap texels are `38, 53, 69, 86, 104, 122, 141, 160, 179, 198, 215, 231, 244, 252, 255, 255`. Level 0 therefore retains ambient light; it does not multiply the skin by zero. Low light still looks dark, as it does in an unlit vanilla location. CPU/GPU floating-point and UNORM conversion can differ by one channel step at quantization boundaries.
+
+World rendering uses Minecraft's **fixed** normalized directions `(0.2, 1, -0.7)` and `(-0.2, 1, 0.7)`. The arbitrary light-angle option has been removed. The editor converts the vertical axis and transforms normals with the current mesh pose, using the vanilla diffuse expression `min(1, 0.4 + 0.6 * (max(0, dot(light0, normal)) + max(0, dot(light1, normal))))`. Rotating the camera does not rotate the world lights. Diffuse shading is multiplied by the lightmap, while alpha and source texture pixels remain unchanged.
+
+For texture RGB `(211,235,234)`, a front face at level 0 renders approximately `(23,26,26)` and at full daylight approximately `(156,174,173)`. The **Game brightness** setting in advanced options is the actual Minecraft video brightness/gamma setting, not an arbitrary exposure or fill-light control. It defaults to 100% and can be adjusted to compare another game configuration. Turning off Minecraft lighting provides an unlit texture-color preview. Old `PreviewBrightness` percentage and `PreviewLightDirection` keys are ignored; the separate `PreviewLightLevel` and `PreviewGameBrightness` preferences prevent those old values from being reinterpreted.
+
+Resolution defaults to 100% and antialiasing to Off. Higher resolution supersamples the 3D scene before downsampling; lower resolution reduces GPU work. MSAA is resolved at the render resolution before scaling to the window. Both settings apply live, including through the existing antialiasing menu, and affect only the 3D view. Skin textures use nearest-neighbor sampling; 2D editing, picking, PNG contents and the UI remain at native resolution. Supported sample counts and framebuffer dimensions are bounded by the graphics driver. Framebuffers are reused between frames and released when returning to native resolution without AA or closing the editor.
+
+## Validation
+
+The smoke suite covers Steve, Alex, legacy hats and higher-resolution textures, corner geometry, translucent pixels, UVs, picking, mesh caching, settings persistence and reset. These checks use synthetic textures and require no upstream source or reference downloads.
+
+Graphics checks cover base and raised faces, all 16 light levels, both rendering backends, unlit colors, the lighting toolbar toggle, live resolution/MSAA changes, framebuffer reuse and cleanup, painting and undo, and unchanged 2D views. Run them with:
+
+```powershell
+dotnet run --project tests/MCSkin3D.SmokeTests -c Release
+dotnet run --project tests/MCSkin3D.IntegrationTests -c Release -- --render-quality
+```

@@ -29,14 +29,23 @@ namespace MCSkin3D
         private ComboBox _skinSelector, _capeSelector;
         private ToolStripButton _combinedButton;
         private ToolStripMenuItem _combinedMenu;
+        private ToolStripMenuItem _skinLayersMenu;
+        private ToolStripButton _skinLayersButton;
+        private ToolStripButton _minecraftLightingButton;
+        private ToolStripMenuItem _skinLayerSettingsMenu;
         private ToolStripButton _officialCapesButton;
         private Label _officialCapeLabel;
         private readonly Dictionary<string, Skin> _officialCapeDocuments = new Dictionary<string, Skin>();
         private readonly Dictionary<Button, string> _workspaceButtons = new Dictionary<Button, string>();
         private readonly Dictionary<Label, string> _workspaceLabels = new Dictionary<Label, string>();
         private Button _editSkinButton, _editCapeButton, _capeButton, _elytraButton;
-        private FlowLayoutPanel _wingSpreadGroup;
+        private FlowLayoutPanel _toolOptionsArea;
+        private bool _layingOutToolOptions;
+        private GroupBox _wingSpreadGroup;
         private TrackBar _wingSpreadSlider;
+        private GroupBox _brightnessGroup;
+        private TrackBar _brightnessSlider;
+        private Label _brightnessValue;
 
         private sealed class LibraryChoice
         {
@@ -47,11 +56,34 @@ namespace MCSkin3D
 
         private void InitializeWorkspace()
         {
+            _skinLayersMenu = new ToolStripMenuItem { Name = "skinLayers3DMenu", Checked = GlobalSettings.SkinLayers3D };
+            _skinLayersMenu.Click += (_, _) => SetSkinLayers3D(!GlobalSettings.SkinLayers3D);
+            viewToolStripMenuItem.DropDownItems.Add(_skinLayersMenu);
+            _skinLayersButton = new ToolStripButton { Name = "skinLayers3DButton", DisplayStyle = ToolStripItemDisplayStyle.Text, Overflow = ToolStripItemOverflow.Never };
+            _skinLayersButton.Click += (_, _) => SetSkinLayers3D(!GlobalSettings.SkinLayers3D);
+            _minecraftLightingButton = new ToolStripButton { Name = "minecraftLightingButton", DisplayStyle = ToolStripItemDisplayStyle.Text };
+            _minecraftLightingButton.Click += (_, _) => SetMinecraftLighting(!GlobalSettings.MinecraftLighting);
+            _skinLayerSettingsMenu = new ToolStripMenuItem { Name = "skinLayerSettingsMenu" };
+            _skinLayerSettingsMenu.Click += (_, _) =>
+            {
+                using var dialog = new Forms.SkinLayerSettingsDialog(SkinLayerOptions.Current);
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                FinishStroke();
+                dialog.Options.Save();
+                dialog.Rendering.Save();
+                SetSampleMenuItem(dialog.Rendering.Samples);
+                GlobalSettings.Save();
+                RebuildScene();
+                RefreshEditingView();
+            };
+            optionsToolStripMenuItem.DropDownItems.Add(_skinLayerSettingsMenu);
             _combinedButton = new ToolStripButton { Name = "combinedPreviewButton", DisplayStyle = ToolStripItemDisplayStyle.Text };
             _combinedMenu = new ToolStripMenuItem { Name = "combinedPreviewMenu" };
             _combinedButton.Click += (_, _) => SetCombinedMode(!CombinedEnabled);
             _combinedMenu.Click += (_, _) => SetCombinedMode(!CombinedEnabled);
             toolStrip1.Items.Add(new ToolStripSeparator());
+            toolStrip1.Items.Add(_skinLayersButton);
+            toolStrip1.Items.Add(_minecraftLightingButton);
             toolStrip1.Items.Add(_combinedButton);
             viewToolStripMenuItem.DropDownItems.Add(_combinedMenu);
             _officialCapesButton = new ToolStripButton { Name = "officialCapesButton", DisplayStyle = ToolStripItemDisplayStyle.Text };
@@ -74,8 +106,10 @@ namespace MCSkin3D
             _elytraButton = AddWorkspaceButton("W_ELYTRA", () => SetAccessoryView(AccessoryView.Elytra));
             GroupWorkspaceButtons(_editSkinButton, _editCapeButton);
             GroupWorkspaceButtons(_capeButton, _elytraButton);
-            _wingSpreadGroup = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                WrapContents = false, Margin = new Padding(0) };
+            _toolOptionsArea = new FlowLayoutPanel { Name = "toolOptionsArea", Dock = DockStyle.Fill,
+                WrapContents = true, AutoScroll = true, Padding = new Padding(0) };
+            splitContainer4.Panel1.Controls.Add(_toolOptionsArea);
+            _wingSpreadGroup = PreviewOptionsGroup("elytraOptions", out var wingRow);
             var folded = new Label { AutoSize = true, Margin = new Padding(4, 7, 0, 0) };
             var spread = new Label { AutoSize = true, Margin = new Padding(0, 7, 4, 0) };
             _workspaceLabels.Add(folded, "W_FOLDED");
@@ -87,14 +121,61 @@ namespace MCSkin3D
             {
                 if (!_syncWorkspace) SetWingSpread(_wingSpreadSlider.Value / 100f);
             };
-            _wingSpreadGroup.Controls.Add(folded);
-            _wingSpreadGroup.Controls.Add(_wingSpreadSlider);
-            _wingSpreadGroup.Controls.Add(spread);
-            _workspaceBar.Controls.Add(_wingSpreadGroup);
+            wingRow.Controls.Add(folded);
+            wingRow.Controls.Add(_wingSpreadSlider);
+            wingRow.Controls.Add(spread);
+            _toolOptionsArea.Controls.Add(_wingSpreadGroup);
+            _brightnessGroup = PreviewOptionsGroup("brightnessOptions", out var brightnessRow);
+            var brightnessLabel = new Label { AutoSize = true, Margin = new Padding(4, 7, 0, 0) };
+            _workspaceLabels.Add(brightnessLabel, "SL_LIGHT_LEVEL");
+            _brightnessSlider = new TrackBar { Name = "brightnessSlider", Minimum = 0, Maximum = 15,
+                SmallChange = 1, LargeChange = 1, TickStyle = TickStyle.None, AutoSize = false,
+                Size = new Size(140, 28), Margin = new Padding(0) };
+            _brightnessValue = new Label { Name = "brightnessValue", AutoSize = true,
+                MinimumSize = new Size(35, 0), TextAlign = ContentAlignment.MiddleRight, Margin = new Padding(0, 7, 4, 0) };
+            _brightnessSlider.ValueChanged += (_, _) =>
+            {
+                if (!_syncWorkspace) SetPreviewLightLevel(_brightnessSlider.Value);
+            };
+            brightnessRow.Controls.Add(brightnessLabel);
+            brightnessRow.Controls.Add(_brightnessSlider);
+            brightnessRow.Controls.Add(_brightnessValue);
+            _toolOptionsArea.Controls.Add(_brightnessGroup);
+            _toolOptionsArea.Layout += (_, _) => UpdateToolOptionsHeight();
             panel4.Controls.Add(_workspaceBar);
             // Place the wrapping bar below the existing viewport toolbar, including in the popout.
             panel4.Controls.SetChildIndex(_workspaceBar, panel4.Controls.IndexOf(toolStrip1));
             RefreshWorkspaceControls();
+        }
+
+        private static GroupBox PreviewOptionsGroup(string name, out FlowLayoutPanel row)
+        {
+            var group = new GroupBox { Name = name, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                MinimumSize = new Size(0, 64), Margin = new Padding(3), Padding = new Padding(6, 3, 6, 3) };
+            row = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Dock = DockStyle.Fill, WrapContents = false, Margin = new Padding(0) };
+            group.Controls.Add(row);
+            return group;
+        }
+
+        private void UpdateToolOptionsHeight()
+        {
+            if (_toolOptionsArea == null || _layingOutToolOptions) return;
+            _layingOutToolOptions = true;
+            try
+            {
+                splitContainer4.Panel1Collapsed = !_opening;
+                if (!_opening) return;
+                _selectedTool?.OptionsPanel?.ArrangeOptions(_toolOptionsArea.ClientSize.Width);
+                int preferred = _toolOptionsArea.GetPreferredSize(new Size(_toolOptionsArea.ClientSize.Width, 0)).Height + 4;
+                int available = Math.Max(0, splitContainer4.Height - splitContainer4.Panel2MinSize - splitContainer4.SplitterWidth);
+                // Reserve one row for the legacy tool panels (designed at a
+                // 13-pixel font), including when Camera has no tool panel.
+                int rowHeight = (int)Math.Ceiling(74 * Font.Height / 13d * DeviceDpi / 96d);
+                int height = Math.Min(Math.Max(rowHeight, preferred), available);
+                if (splitContainer4.SplitterDistance != height) splitContainer4.SplitterDistance = height;
+            }
+            finally { _layingOutToolOptions = false; }
         }
 
         private void GroupWorkspaceButtons(params Button[] buttons)
@@ -163,13 +244,29 @@ namespace MCSkin3D
         private void RefreshWorkspaceControls()
         {
             if (_workspaceBar == null) return;
+            _skinLayersButton.Text = _skinLayersMenu.Text = LanguageLoader.GetStringWithFallback("M_3D_SKIN_LAYERS");
+            _skinLayerSettingsMenu.Text = LanguageLoader.GetStringWithFallback("SL_SETTINGS") + "…";
+            _skinLayersButton.ToolTipText = _skinLayersMenu.ToolTipText = LanguageLoader.GetStringWithFallback("T_3D_SKIN_LAYERS");
+            _skinLayersButton.Checked = _skinLayersMenu.Checked = GlobalSettings.SkinLayers3D;
+            _minecraftLightingButton.Text = LanguageLoader.GetStringWithFallback("M_MINECRAFT_LIGHTING");
+            _minecraftLightingButton.ToolTipText = LanguageLoader.GetStringWithFallback("T_MINECRAFT_LIGHTING");
+            _minecraftLightingButton.Checked = GlobalSettings.MinecraftLighting;
             _combinedButton.Text = _combinedMenu.Text = LanguageLoader.GetStringWithFallback("W_COMBINED");
             _officialCapesButton.Text = LanguageLoader.GetStringWithFallback("W_OFFICIAL_CAPES");
             _officialCapesButton.Visible = !CombinedEnabled;
             _officialCapeLabel.Text = _workspaceCape?.ReferenceCape?.Name ?? "";
-            _officialCapeLabel.Visible = _workspaceCape?.IsReadOnly == true;
             _combinedButton.Checked = _combinedMenu.Checked = CombinedEnabled;
+            _workspaceBar.SuspendLayout();
+            _toolOptionsArea.SuspendLayout();
+            foreach (Control control in _workspaceBar.Controls) control.Visible = CombinedEnabled;
+            _officialCapeLabel.Visible = CombinedEnabled && _workspaceCape?.IsReadOnly == true;
+            bool has3DView = _currentViewMode != ViewMode.Orthographic;
+            _minecraftLightingButton.Visible = has3DView && GlobalSettings.SkinLayers3D;
+            bool showBrightness = has3DView && GlobalSettings.SkinLayers3D && GlobalSettings.MinecraftLighting;
+            _brightnessGroup.Visible = showBrightness;
             _workspaceBar.Visible = CombinedEnabled;
+            _brightnessGroup.Text = LanguageLoader.GetStringWithFallback("SL_BRIGHTNESS");
+            _wingSpreadGroup.Text = LanguageLoader.GetStringWithFallback("W_ELYTRA");
             foreach (var pair in _workspaceLabels) pair.Key.Text = LanguageLoader.GetStringWithFallback(pair.Value);
             foreach (var pair in _workspaceButtons) pair.Key.Text = LanguageLoader.GetStringWithFallback(pair.Value);
             _editSkinButton.Enabled = _workspaceSkin != null;
@@ -179,13 +276,53 @@ namespace MCSkin3D
             _editCapeButton.BackColor = ActiveEditingTarget == EditingTarget.Cape ? SystemColors.GradientActiveCaption : SystemColors.Control;
             _capeButton.BackColor = AccessoryPresentation == AccessoryView.Cape ? SystemColors.GradientActiveCaption : SystemColors.Control;
             _elytraButton.BackColor = AccessoryPresentation == AccessoryView.Elytra ? SystemColors.GradientActiveCaption : SystemColors.Control;
-            _wingSpreadGroup.Visible = AccessoryPresentation == AccessoryView.Elytra;
+            _wingSpreadGroup.Visible = has3DView && CombinedEnabled && AccessoryPresentation == AccessoryView.Elytra;
             _wingSpreadSlider.AccessibleName = LanguageLoader.GetStringWithFallback("W_WING_SPREAD");
+            _brightnessSlider.AccessibleName = LanguageLoader.GetStringWithFallback("SL_BRIGHTNESS");
+            _brightnessSlider.AccessibleDescription = LanguageLoader.GetStringWithFallback("SL_BRIGHTNESS_HELP");
             _syncWorkspace = true;
-            try { _wingSpreadSlider.Value = (int)Math.Round(WingSpread * 100); }
+            try
+            {
+                _wingSpreadSlider.Value = (int)Math.Round(WingSpread * 100);
+                _brightnessSlider.Value = PreviewRenderOptions.Current.LightLevel;
+                _brightnessValue.Text = _brightnessSlider.Value + " / 15";
+            }
             finally { _syncWorkspace = false; }
+            _workspaceBar.ResumeLayout(true);
+            _toolOptionsArea.ResumeLayout(true);
+            UpdateToolOptionsHeight();
             RefreshLibraryChoices(_skinSelector, EditingTarget.Skin);
             RefreshLibraryChoices(_capeSelector, EditingTarget.Cape);
+        }
+
+        public void SetSkinLayers3D(bool enabled)
+        {
+            FinishStroke();
+            GlobalSettings.SkinLayers3D = enabled;
+            RebuildScene();
+            RefreshEditingView();
+        }
+
+        private void SetMinecraftLighting(bool enabled)
+        {
+            FinishStroke();
+            GlobalSettings.MinecraftLighting = enabled;
+            RefreshWorkspaceControls();
+            Renderer?.Invalidate();
+        }
+
+        internal void SetPreviewLightLevel(int level)
+        {
+            FinishStroke();
+            GlobalSettings.PreviewLightLevel = Math.Clamp(level, 0, 15);
+            _syncWorkspace = true;
+            try
+            {
+                _brightnessSlider.Value = GlobalSettings.PreviewLightLevel;
+                _brightnessValue.Text = _brightnessSlider.Value + " / 15";
+            }
+            finally { _syncWorkspace = false; }
+            Renderer?.Invalidate();
         }
 
         public void SetCombinedMode(bool enabled)
@@ -315,6 +452,7 @@ namespace MCSkin3D
             if (!CombinedEnabled)
             {
                 if (_lastSkin != null) _scene.Add(new PreviewItem { Document = _lastSkin, Model = _lastSkin.Model });
+                if (GlobalSettings.SkinLayers3D) CaptureSceneLayers();
                 return;
             }
             if (_workspaceSkin != null && _playerSource != _workspaceSkin.Model)
@@ -333,6 +471,11 @@ namespace MCSkin3D
                 PreviewItem.PoseAccessory(model, AccessoryPresentation, WingSpread);
                 _scene.Add(new PreviewItem { Document = _workspaceCape, Model = model, Sheet = _capeSheet });
             }
+            CaptureSceneLayers();
+        }
+
+        private void CaptureSceneLayers()
+        {
             foreach (var item in _scene)
             {
                 if (item.Document.GLImage == null) item.Document.Create();
@@ -340,6 +483,7 @@ namespace MCSkin3D
                     item.Document.Width, item.Document.Height);
                 pixels.Load();
                 item.CaptureAlpha(pixels);
+                item.UpdateSkinLayers();
             }
         }
 
@@ -538,15 +682,22 @@ namespace MCSkin3D
                 using (var pixels = new ColorGrabber(texture, item.Document.Width, item.Document.Height))
                 {
                     pixels.Load();
-                    if (CombinedEnabled) item.CaptureAlpha(pixels);
+                    if (CombinedEnabled || GlobalSettings.SkinLayers3D) item.CaptureAlpha(pixels);
+                    item.UpdateSkinLayers();
                     for (int i = 0; i < item.Model.Meshes.Count; ++i)
                     {
                         var mesh = item.Model.Meshes[i];
                         bool visible = item.Model.PartsEnabled[i];
                         if (!visible && !GlobalSettings.Ghost) continue;
+                        SkinLayerGeometry layer = null;
+                        if (item.UseSkinLayers && item.SkinLayers.TryGetValue(mesh, out layer))
+                        {
+                            mesh = layer.Mesh;
+                            mesh.Matrix = item.Model.Meshes[i].Matrix;
+                        }
                         mesh.Texture = texture;
-                        mesh.HasTransparency = false;
-                        if (!mesh.IsSolid)
+                        if (layer == null) mesh.HasTransparency = false;
+                        if (layer == null && !mesh.IsSolid)
                             foreach (var face in mesh.Faces)
                             {
                                 var rect = Rectangle.Intersect(face.TexCoordsToInteger(item.Document.Width, item.Document.Height), new Rectangle(0, 0, item.Document.Width, item.Document.Height));
@@ -557,12 +708,15 @@ namespace MCSkin3D
                             }
                         mesh.LastDrawTransparent = mesh.DrawTransparent;
                         mesh.DrawTransparent = !visible && GlobalSettings.Ghost;
+                        var rendering = PreviewRenderOptions.Current;
+                        bool lightingChanged = mesh.SetLighting(GlobalSettings.SkinLayers3D && rendering.MinecraftLighting && PreviewItem.Role(item.Document) != null,
+                            rendering.GameBrightness, rendering.LightLevel);
                         if (mesh.UserData == null)
                         {
                             mesh.UserData = MeshRenderer.CreateUserData(mesh);
                             MeshRenderer.UpdateUserData(mesh);
                         }
-                        else if (mesh.LastDrawTransparent != mesh.DrawTransparent) MeshRenderer.UpdateUserData(mesh);
+                        else if (mesh.LastDrawTransparent != mesh.DrawTransparent || lightingChanged) MeshRenderer.UpdateUserData(mesh);
                         MeshRenderer.AddMesh(mesh);
                     }
                 }

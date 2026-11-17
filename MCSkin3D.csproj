@@ -19,6 +19,12 @@
     <Compile Include="Services\SkinMoveSession.cs" />
     <Compile Include="Services\EditorHistory.cs" />
     <Compile Include="Services\PreviewScene.cs" />
+    <Compile Include="Services\SkinLayerGeometry.cs" />
+    <Compile Include="Services\MinecraftPreviewLighting.cs" />
+    <Compile Include="Settings\SkinLayerOptions.cs" />
+    <Compile Include="Settings\PreviewRenderOptions.cs" />
+    <Compile Include="Paril\OpenGL\PreviewRenderTarget.cs" />
+    <Compile Include="Forms\SkinLayerSettingsDialog.cs" />
     <Compile Include="Services\OfficialCapeCatalog.cs" />
     <Compile Include="Forms\OfficialCapeDialog.cs" />
     <EmbeddedResource Include="Assets\OfficialCapes\*.png;Assets\OfficialCapes\catalog.xml">

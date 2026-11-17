@@ -42,6 +42,8 @@ namespace Paril.OpenGL
 			GL.Begin(mesh.Mode);
 			foreach (Face face in mesh.Faces)
 			{
+				float brightness = mesh.FaceBrightness(face);
+				GL.Color4(brightness, brightness, brightness, mesh.DrawTransparent ? .25f : 1);
 				foreach (int index in face.Indices)
 				{
 					GL.TexCoord2(face.TexCoords[index]);

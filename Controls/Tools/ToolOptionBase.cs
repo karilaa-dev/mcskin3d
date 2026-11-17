@@ -16,12 +16,36 @@
 //    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 
+using System;
+using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace MCSkin3D
 {
 	public class ToolOptionBase : UserControl
 	{
+		private FlowLayoutPanel _groups;
+
+		internal void ArrangeOptions(int availableWidth)
+		{
+			if (_groups == null)
+			{
+				var controls = Controls.Cast<Control>().OrderBy(c => c.Left).ToArray();
+				_groups = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = true, Margin = new Padding(0) };
+				foreach (var control in controls)
+				{
+					control.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+					control.Margin = new Padding(3);
+					_groups.Controls.Add(control);
+				}
+				Controls.Add(_groups);
+			}
+			int naturalWidth = _groups.Controls.Cast<Control>().Sum(c => c.Width + c.Margin.Horizontal);
+			Width = Math.Min(Math.Max(1, availableWidth), naturalWidth);
+			Height = _groups.GetPreferredSize(new Size(Width, 0)).Height;
+		}
+
 		public ToolOptionBase()
 		{
 			SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint, true);
