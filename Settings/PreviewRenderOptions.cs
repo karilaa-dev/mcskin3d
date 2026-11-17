@@ -2,7 +2,7 @@ using System;
 
 namespace MCSkin3D
 {
-    internal readonly record struct PreviewRenderOptions(int Resolution, int Samples, bool MinecraftLighting, int LightLevel = 8, int LightAngle = 0, bool LightSurroundings = true)
+    internal readonly record struct PreviewRenderOptions(int Resolution, int Samples, bool MinecraftLighting, int LightLevel = 15, int LightAngle = 0, bool LightSurroundings = true)
     {
         public static PreviewRenderOptions Defaults => new(100, 0, true);
         public static PreviewRenderOptions Current => new PreviewRenderOptions(GlobalSettings.PreviewResolution,

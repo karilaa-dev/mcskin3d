@@ -22,7 +22,7 @@ internal static class UpdateCheckerChecks
         using var handler = new FakeHandler();
         using var client = new HttpClient(handler);
         string skipped = null;
-        var checker = new UpdateChecker(client, new Version(1, 7, 2), "portable", () => skipped);
+        var checker = new UpdateChecker(client, new Version(1, 7, 2), () => skipped);
         handler.Body = JsonSerializer.Serialize(Release());
         check(await checker.CheckForUpdatesAsync().ConfigureAwait(false), "New release is available");
         check(checker.LastCheckSucceeded && checker.LastError == null, "Successful request clears error");
@@ -38,19 +38,20 @@ internal static class UpdateCheckerChecks
 
         foreach (var current in new[] { new Version(2, 0, 0), new Version(2, 0, 0, 0), new Version(2, 0, 1) })
         {
-            var upToDate = new UpdateChecker(client, current, "portable");
+            var upToDate = new UpdateChecker(client, current);
             check(!await upToDate.CheckForUpdatesAsync().ConfigureAwait(false) && upToDate.LastCheckSucceeded && upToDate.LatestRelease == null, "Equal or older release is not an upgrade: " + current);
         }
         handler.Body = JsonSerializer.Serialize(Release("v1.7.10"));
-        check(await new UpdateChecker(client, new Version(1, 7, 9), "portable").CheckForUpdatesAsync().ConfigureAwait(false), "Version ordering is numeric rather than lexical");
+        check(await new UpdateChecker(client, new Version(1, 7, 9)).CheckForUpdatesAsync().ConfigureAwait(false), "Version ordering is numeric rather than lexical");
 
         var portableAsset = Asset("v2.0.0.0", false);
         var lightAsset = Asset("v2.0.0.0", true);
         handler.Body = JsonSerializer.Serialize(Release(assets: new[] { portableAsset, lightAsset }));
-        var light = new UpdateChecker(client, new Version(1, 7, 2), "lightweight");
-        check(await light.CheckForUpdatesAsync().ConfigureAwait(false) && light.LatestRelease.Asset.Name.EndsWith("-light.zip", StringComparison.Ordinal), "Lightweight edition selects only lightweight package");
+        check(await checker.CheckForUpdatesAsync().ConfigureAwait(false) && checker.LatestRelease.Asset.Name == "MCSkin3D-2.0.0.0-win-x64.zip", "Portable package is selected even when a retired lightweight package is present");
+        handler.Body = JsonSerializer.Serialize(Release(assets: new[] { lightAsset }));
+        check(!await checker.CheckForUpdatesAsync().ConfigureAwait(false) && !checker.LastCheckSucceeded && checker.LatestRelease == null, "A release with only a lightweight package is not installable");
         handler.Body = JsonSerializer.Serialize(Release(assets: new[] { portableAsset }));
-        check(!await light.CheckForUpdatesAsync().ConfigureAwait(false) && !light.LastCheckSucceeded && light.LatestRelease == null, "Missing lightweight package never silently changes edition");
+        check(await checker.CheckForUpdatesAsync().ConfigureAwait(false), "Portable-only release is installable");
         var legacy = Asset("v2.0.0.0", false, "MCSkin3D-win-x64.zip");
         handler.Body = JsonSerializer.Serialize(Release(assets: new[] { legacy }));
         check(await checker.CheckForUpdatesAsync().ConfigureAwait(false), "Existing unversioned archive name is supported");

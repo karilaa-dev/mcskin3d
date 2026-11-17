@@ -110,8 +110,8 @@ internal static partial class Program
                 "Viewport toolbar exposes the enabled, localized Minecraft Lighting toggle");
             var bar = Field<FlowLayoutPanel>(editor, "_workspaceBar");
             var optionsArea = Field<FlowLayoutPanel>(editor, "_toolOptionsArea");
-            Check(brightnessSlider.Visible && brightnessSlider.Value == 8 && brightnessValue.Text == "8",
-                "Main preview exposes a live brightness slider with a level 8 default");
+            Check(brightnessSlider.Visible && brightnessSlider.Value == 15 && brightnessValue.Text == "15",
+                "Main preview exposes a live brightness slider with a level 15 default");
             Check(!bar.Visible && optionsArea.Contains(brightnessSlider),
                 "Single-skin brightness lives in the tool-options area, outside the library toolbar");
             Check(angleSlider.Visible && optionsArea.Contains(angleSlider) && angleSlider.Minimum == -90 && angleSlider.Maximum == 90 &&
@@ -154,6 +154,9 @@ internal static partial class Program
             editor.SetSkinLayers3D(true);
             Check(brightnessSlider.Visible && brightnessSlider.Value == 6, "Enabling 3D layers retains the saved brightness");
             Check(lightingButton.Available && lightingButton.Checked, "Enabling 3D layers retains the lighting toggle state");
+            // Keep independent pixel/raster comparisons at their explicit reference level.
+            // The fresh-install level of 15 is verified above.
+            var referenceRendering = PreviewRenderOptions.Defaults with { LightLevel = 8 };
             editor.SetPreviewLightLevel(8);
             var item = Field<List<PreviewItem>>(editor, "_scene").Single();
             for (int i = 0; i < item.Model.Meshes.Count; ++i)
@@ -181,7 +184,7 @@ internal static partial class Program
             var target = Field<PreviewRenderTarget>(editor, "_previewRenderTarget");
             foreach (var quality in new[] { (50, 0), (100, 2), (100, 4), (100, 8), (150, 4), (200, 0) })
             {
-                (PreviewRenderOptions.Defaults with { Resolution = quality.Item1, Samples = quality.Item2 }).Save();
+                (referenceRendering with { Resolution = quality.Item1, Samples = quality.Item2 }).Save();
                 using var frame = (Bitmap)Call(editor, "CopyScreenToBitmap");
                 frame.Save(Path.Combine(scratch, $"quality-{quality.Item1}-{quality.Item2}.png"));
                 Check(target.Width == (int)Math.Round(editor.Renderer.Width * quality.Item1 / 100d) &&
@@ -198,7 +201,7 @@ internal static partial class Program
                 Check(FrameDifference(native, frame, new Rectangle(Point.Empty, native.Size)) > 0, "Quality changes actual rasterized pixels: " + quality);
             }
             // Exercise a real edit while rendering to a scaled multisample target.
-            (PreviewRenderOptions.Defaults with { Resolution = 150, Samples = 4 }).Save();
+            (referenceRendering with { Resolution = 150, Samples = 4 }).Save();
             MCSkin3D.Brushes.BrushBox.SelectedItem = MCSkin3D.Brushes.BrushList.First(b => b.Width == 1 && b.Height == 1);
             editor.ColorPanel.SelectedColor = MCSkin3D.lemon42.ColorManager.FromRGBA(255, 0, 255, 255);
             var tools = Field<List<ToolIndex>>(editor, "_tools");
@@ -227,7 +230,7 @@ internal static partial class Program
             location = QualityFacePoint(helmet.Mesh, face);
             Check(ReadDocumentPixel(skin, sourcePixel) == new ColorPixel(211, 235, 234, 255).RGBA,
                 "Undo restores the original texture independently of preview lighting");
-            PreviewRenderOptions.Defaults.Save();
+            referenceRendering.Save();
             using (var reset = (Bitmap)Call(editor, "CopyScreenToBitmap"))
             {
                 int changed = FrameDifference(native, reset, new Rectangle(Point.Empty, native.Size));
@@ -273,7 +276,7 @@ internal static partial class Program
             Check(PreviewRenderOptions.Current == (lightingBeforeReset with { Resolution = 100, Samples = 0 }) &&
                 !lightingButton.Checked && brightnessSlider.Value == 15 && angleSlider.Value == 45 && !surroundings.Checked,
                 "Resetting layer settings preserves the lighting toggle, world light, angle and surroundings preference");
-            PreviewRenderOptions.Defaults.Save();
+            referenceRendering.Save();
             Call(editor, "RefreshWorkspaceControls");
             SaveBrightnessBar(optionsArea, "brightness-toolbar");
             SaveBrightnessBar(lightingButton.Owner, "minecraft-lighting-toolbar");
@@ -310,9 +313,9 @@ internal static partial class Program
                     "Lighting controls are visible only when the view includes 3D: " + mode);
                 Check(lightingButton.Available == (mode == ViewMode.Hybrid) && lightingButton.Checked,
                     "Lighting toggle follows the 3D view while retaining its state: " + mode);
-                PreviewRenderOptions.Defaults.Save();
+                referenceRendering.Save();
                 using var before = (Bitmap)Call(editor, "CopyScreenToBitmap");
-                (PreviewRenderOptions.Defaults with { Resolution = 200, Samples = 4 }).Save();
+                (referenceRendering with { Resolution = 200, Samples = 4 }).Save();
                 using var after = (Bitmap)Call(editor, "CopyScreenToBitmap");
                 CheckTextureFrameUnchanged(before, after, "2D texture remains pixel-identical at high quality: " + mode);
             }

@@ -34,7 +34,6 @@ namespace MCSkin3D.UpdateSystem
         private static readonly HttpClient SharedClient = CreateClient();
         private readonly HttpClient client;
         private readonly System.Version currentVersion;
-        private readonly string edition;
         private readonly Func<string> skippedVersion;
         private readonly SemaphoreSlim checkGate = new SemaphoreSlim(1, 1);
 
@@ -43,31 +42,15 @@ namespace MCSkin3D.UpdateSystem
         public UpdateRelease LatestRelease { get; private set; }
 
         public UpdateChecker() : this(SharedClient, typeof(UpdateChecker).Assembly.GetName().Version,
-            ReadEdition(), () => GlobalSettings.SkippedUpdateVersion) { }
+            () => GlobalSettings.SkippedUpdateVersion) { }
 
         // The injected client is owned by the caller. The GitHub endpoint remains fixed.
-        public UpdateChecker(HttpClient client, System.Version currentVersion, string edition,
+        public UpdateChecker(HttpClient client, System.Version currentVersion,
             Func<string> skippedVersion = null)
         {
             this.client = client ?? throw new ArgumentNullException(nameof(client));
             this.currentVersion = Normalize(currentVersion ?? throw new ArgumentNullException(nameof(currentVersion)));
-            if (edition != "portable" && edition != "lightweight")
-                throw new ArgumentException("Unknown update edition.", nameof(edition));
-            this.edition = edition;
             this.skippedVersion = skippedVersion ?? (() => null);
-        }
-
-        private static string ReadEdition()
-        {
-            try
-            {
-                var path = Path.Combine(AppContext.BaseDirectory, "update-channel.txt");
-                if (File.Exists(path) && File.ReadAllText(path).Trim() == "lightweight")
-                    return "lightweight";
-            }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-            return "portable";
         }
 
         private static HttpClient CreateClient()
@@ -138,19 +121,18 @@ namespace MCSkin3D.UpdateSystem
             finally { checkGate.Release(); }
         }
 
-        private UpdateAsset ReadAsset(JsonElement root, string tag)
+        private static UpdateAsset ReadAsset(JsonElement root, string tag)
         {
             string versionText = tag[0] == 'v' || tag[0] == 'V' ? tag.Substring(1) : tag;
-            string suffix = edition == "lightweight" ? "-win-x64-light.zip" : "-win-x64.zip";
-            string versionedName = "MCSkin3D-" + versionText + suffix;
-            string legacyName = "MCSkin3D" + suffix;
+            string versionedName = "MCSkin3D-" + versionText + "-win-x64.zip";
+            const string legacyName = "MCSkin3D-win-x64.zip";
             UpdateAsset selected = null;
             foreach (var entry in root.GetProperty("assets").EnumerateArray())
             {
                 string name = entry.GetProperty("name").GetString();
                 if (name != versionedName && name != legacyName) continue;
                 if (selected != null)
-                    throw new InvalidDataException("The release contains ambiguous update packages for this edition.");
+                    throw new InvalidDataException("The release contains ambiguous portable update packages.");
                 string expectedUrl = ReleasesUrl + "/download/" + Uri.EscapeDataString(tag) + "/" + Uri.EscapeDataString(name);
                 if (entry.GetProperty("browser_download_url").GetString() != expectedUrl)
                     throw new InvalidDataException("The update download is outside this application's GitHub release.");
@@ -172,7 +154,7 @@ namespace MCSkin3D.UpdateSystem
                 }
                 selected = new UpdateAsset { Name = name, DownloadUrl = expectedUrl, Size = size, Sha256 = sha256 };
             }
-            return selected ?? throw new InvalidDataException("The latest release does not include the " + edition + " Windows x64 package.");
+            return selected ?? throw new InvalidDataException("The latest release does not include the portable Windows x64 package.");
         }
 
         private static string OptionalString(JsonElement element, string property) =>

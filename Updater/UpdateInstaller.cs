@@ -71,6 +71,7 @@ namespace MCSkin3D.UpdateSystem
                 throw new InvalidDataException("The update package is not from this project's GitHub release.");
             string target = Path.GetFullPath(targetDirectory);
             EnsureNoLinks(target, target);
+            _ = ReadEdition(target); // Legacy lightweight installations migrate into the portable package.
             string job = Path.Combine(target, StagingPrefix + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(job); // Also verifies this portable installation is writable.
             var prepared = new PreparedUpdate(job);
@@ -103,7 +104,7 @@ namespace MCSkin3D.UpdateSystem
                 await Task.Run(() =>
                 {
                     ExtractPackage(archive, Path.Combine(job, "payload"), cancellationToken);
-                    ValidatePayload(Path.Combine(job, "payload"), release.Version, ReadEdition(target), cancellationToken);
+                    ValidatePayload(Path.Combine(job, "payload"), release.Version, cancellationToken);
                 }, cancellationToken).ConfigureAwait(false);
                 progress?.Report(100);
                 return prepared;
@@ -111,6 +112,7 @@ namespace MCSkin3D.UpdateSystem
             catch { prepared.Dispose(); throw; }
         }
 
+        // Recognize the retired marker only to allow installed lightweight copies to become portable.
         internal static string ReadEdition(string directory)
         {
             string value = File.ReadAllText(Path.Combine(directory, "update-channel.txt")).Trim();
@@ -157,14 +159,14 @@ namespace MCSkin3D.UpdateSystem
             }
         }
 
-        internal static UpdateManifest ValidatePayload(string payload, System.Version expectedVersion, string edition,
+        internal static UpdateManifest ValidatePayload(string payload, System.Version expectedVersion,
             CancellationToken cancellationToken = default)
         {
             var manifest = ReadManifest(payload);
             if (!UpdateChecker.TryParseVersion(manifest.Version, out var version) || version != expectedVersion ||
-                manifest.Edition != edition || !manifest.Files.ContainsKey("MCSkin3D.exe") ||
+                manifest.Edition != "portable" || !manifest.Files.ContainsKey("MCSkin3D.exe") ||
                 !manifest.Files.ContainsKey("update-channel.txt"))
-                throw new InvalidDataException("The update package version or edition does not match the release.");
+                throw new InvalidDataException("The update package must be the portable edition and match the release version.");
             var actual = Directory.GetFiles(payload, "*", SearchOption.AllDirectories)
                 .Select(file => Path.GetRelativePath(payload, file).Replace('\\', '/'))
                 .Where(file => file != ManifestName).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -176,7 +178,7 @@ namespace MCSkin3D.UpdateSystem
                 if (!HashFile(SafePath(payload, item.Key)).Equals(item.Value, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException("An update file failed verification: " + item.Key);
             }
-            if (ReadEdition(payload) != edition ||
+            if (ReadEdition(payload) != "portable" ||
                 !UpdateChecker.TryParseVersion(FileVersionInfo.GetVersionInfo(Path.Combine(payload, "MCSkin3D.exe")).ProductVersion, out var exeVersion) ||
                 exeVersion != expectedVersion)
                 throw new InvalidDataException("The executable version does not match the release.");
@@ -368,7 +370,8 @@ namespace MCSkin3D.UpdateSystem
             string payload = Path.Combine(job, "payload");
             var proposed = ReadManifest(payload);
             if (!UpdateChecker.TryParseVersion(proposed.Version, out var version)) throw new InvalidDataException("Invalid update version.");
-            var manifest = ValidatePayload(payload, version, ReadEdition(target));
+            _ = ReadEdition(target);
+            var manifest = ValidatePayload(payload, version);
             using var updateLock = AcquireInstallerLock(target);
             // Catch another editor instance (Windows holds the running executable open).
             using (new FileStream(Path.Combine(target, "MCSkin3D.exe"), FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }

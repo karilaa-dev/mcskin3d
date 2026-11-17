@@ -20,16 +20,11 @@ The script builds the editor, language editor and regression checks with locked 
 ./build.ps1 -GraphicsTests
 ```
 
-`-Publish` produces two editions with identical editor features and assets:
+`-Publish` produces the **portable Windows x64 edition**: `artifacts/MCSkin3D-2.0.0.0-win-x64.zip`, also ready to run in `artifacts/publish/compact-win-x64`. The .NET runtime and native graphics libraries are included; no separate runtime installation is needed. This is the only published edition.
 
-- **Portable:** `artifacts/MCSkin3D-2.0.0.0-win-x64.zip`, also ready to run in `artifacts/publish/compact-win-x64`. Includes the .NET runtime.
-- **Lightweight:** `artifacts/MCSkin3D-2.0.0.0-win-x64-light.zip`, also in `artifacts/publish/lightweight-win-x64`. Uses an installed **x64 .NET 10 Desktop Runtime**. This reduces download/application-folder size by sharing the runtime, rather than removing editor features. The runtime still occupies disk space wherever it is installed.
+The package places `Languages`, `Models`, `Swatches`, `Skins`, `Overlays`, grass texture and documentation beside `MCSkin3D.exe`, with no `Data` wrapper. For a fresh installation, extract the whole archive into a writable folder before running. For an existing 1.7.2 installation, follow the selective upgrade below. A source build needs the .NET 10 Desktop Runtime.
 
-Both editions place `Languages`, `Models`, `Swatches`, `Skins`, `Overlays`, grass texture and documentation beside `MCSkin3D.exe`, with no `Data` wrapper. Native graphics libraries stay bundled. Extract the whole archive into a writable folder before running. Use `-Package Portable` or `-Package Lightweight` with `-Publish` to produce only one edition. A source build also needs the .NET 10 Desktop Runtime.
-
-Official installer for the lightweight edition: [.NET 10 Desktop Runtime 10.0.11 — Windows x64](https://dotnet.microsoft.com/en-us/download/dotnet/thank-you/runtime-desktop-10.0.11-windows-x64-installer). The Desktop Runtime includes the base .NET Runtime; the SDK is only needed to build from source.
-
-Both editions save preferences in `settings.ini` and skins in `Skins` beside the executable. To migrate a previous build that used `Data`, back up that folder and copy its contents beside the new executable. Source builds use the same adjacent-assets layout. Bundled native libraries are extracted automatically into the user's temporary .NET cache at launch. Publishing uses a fresh staging folder and preserves prior releases outside the final folder, avoiding stale DLLs and keeping test edits safe. ZIP compression is performed at build time and does not change runtime execution.
+Preferences are saved in `settings.ini` and skins in `Skins` beside the executable. To migrate a previous build that used `Data`, back up that folder and copy its contents beside the new executable. Source builds use the same adjacent-assets layout. Bundled native libraries are extracted automatically into the user's temporary .NET cache at launch. Publishing uses a fresh staging folder and preserves prior releases outside the final folder, avoiding stale DLLs and keeping test edits safe. ZIP compression is performed at build time and does not change runtime execution.
 
 `-GraphicsTests` additionally checks rendered pixels, opens the actual splash and editor, and exercises rendering, painting, undo/redo, saving, skin import, tabs, languages and swatches using isolated sample copies. It requires an active Windows desktop and OpenGL 3.3 support; an unavailable display is reported separately from passing tests. Modern Visual Studio with .NET 10 support or the CLI can build the projects.
 
@@ -39,11 +34,24 @@ The desktop compatibility target is Windows 10 x64 (22H2) and Windows 11 x64, wi
 
 After the editor opens, MCSkin3D checks this repository's latest stable GitHub release in the background. A newer version opens a window with its changelog, **Update and restart**, **Close**, and **Skip this update**. Installing begins only when you choose Update and restart. Skipping remembers that version; later versions can still be offered. **Help > Check for updates** also shows versions you previously skipped.
 
-The updater downloads the package for your edition, verifies its size and SHA-256 checksum, and stages it before closing the editor. Unsaved edits go through the normal save prompt; canceling that prompt keeps the editor open. Installation preserves skins, settings, swatches and custom files. Unmodified factory files can be refreshed using the package manifest, while modified bundled assets are preserved. User files are never deleted. Replaced files are backed up, and an installation failure triggers rollback.
+The updater downloads the portable package, verifies its size and SHA-256 checksum, and stages it before closing the editor. Unsaved edits have a **Save / Don't save / Cancel** decision; canceling keeps the editor open. Installation preserves skins, settings, swatches and custom files. Unmodified factory files can be refreshed using the package manifest, while modified bundled assets are preserved. User files are never deleted. Replaced files are backed up, and an installation failure triggers rollback.
 
-Automatic installation is available in the published portable and lightweight editions, extracted into a writable folder. Source builds use a manual download instead. Both editions keep the same features; the lightweight edition still requires the x64 .NET 10 Desktop Runtime.
+Automatic installation is available in the published portable edition, extracted into a writable folder. Source builds use a manual download instead.
 
-**Upgrading from 1.7.1 or 1.7.2:** download 2.0.0.0 from [GitHub Releases](https://github.com/karilaa-dev/mcskin3d/releases) and extract it into a new writable folder. Those versions can open the release page but cannot install this first upgrade. Copy your `settings.ini`, skins, swatches and other custom assets from the old folder, keeping a backup. Future updates can be installed from the new update window.
+**Upgrading from the 1.7.2 portable ZIP:** save your work, close every editor instance, and back up the existing application folder. Download 2.0.0.0 from [GitHub Releases](https://github.com/karilaa-dev/mcskin3d/releases), extract it into a separate folder, then copy only these files into the corresponding locations in your existing installation:
+
+| Action | File | Purpose |
+| --- | --- | --- |
+| Replace | `MCSkin3D.exe` | Required application update; includes the .NET runtime. |
+| Add | `update-channel.txt` | Required to enable future automatic updates. |
+| Add | `update-manifest.json` | Required to enable future automatic updates. |
+| Replace if unmodified | `Languages/English.lang` | Updated English labels; keep a customized catalog. |
+| Replace, optional | `changes.txt` | Updated release notes. |
+| Replace, optional | `readme.txt` | Updated package instructions. |
+
+Leave `settings.ini`, `Skins`, `Swatches`, `Models`, `Overlays`, custom language files and every other existing file untouched. The other 175 files in the original 1.7.2 ZIP are byte-identical to the 2.0.0.0 package. The executable alone upgrades the editor; adding both metadata files enables its automatic installer. Older English catalogs use embedded fallback text for the new controls. See [upgrade and recovery details](docs/updating.md).
+
+Versions 1.7.1 and 1.7.2 can open the release page but cannot install this first upgrade. The exact file comparison above is for the supplied 1.7.2 package. Future updates can be installed from the new update window.
 
 ## First-person preview
 
@@ -59,7 +67,7 @@ Click **3D Skin Layers** on the viewport toolbar, or enable **View > 3D Skin Lay
 
 **Minecraft Lighting** on the viewport toolbar toggles vanilla lighting independently of 3D Skin Layers. It lights ordinary skins, flat overlays, raised layers, first-person hands and combined accessories. Turning it off previews the original texture colors and hides the lighting controls while retaining their values, except in First Person where the disabled controls remain visible to keep the hand stationary. The toggle appears in 3D, hybrid and first-person views.
 
-**Brightness** and **Lighting angle** occupy two compact rows beside Fill/Brush options. They wrap at narrow widths and hide in 2D view or when lighting is off, retaining their values; First Person keeps its disabled lighting controls visible. Brightness uses Minecraft's **0-15 daylight levels**, defaulting to **8** (the nearest midpoint), with Overworld ambient light and game brightness fixed at 100%. Level 0 retains the game's ambient light. **Surroundings**, enabled by default, also dims the background and grass; clear it to keep the environment fully bright. The separate **Elytra** spread control appears only in combined elytra view.
+**Brightness** and **Lighting angle** occupy two compact rows beside Fill/Brush options. They wrap at narrow widths and hide in 2D view or when lighting is off, retaining their values; First Person keeps its disabled lighting controls visible. Brightness uses Minecraft's **0-15 daylight levels**, defaulting to **15** (full daylight), with Overworld ambient light and game brightness fixed at 100%. An existing saved light level is preserved. Level 0 retains the game's ambient light. **Surroundings**, enabled by default, also dims the background and grass; clear it to keep the environment fully bright. The separate **Elytra** spread control appears only in combined elytra view.
 
 **Lighting angle** rotates the light directions from **-90° to 90°**. Drag the slider or enter a degree value; **Default** restores **0°** without changing brightness. The angle and surroundings preference are saved between launches.
 

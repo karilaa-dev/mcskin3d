@@ -220,17 +220,22 @@ internal static class UpdateInstallerChecks
         CreatePayload(payload);
         Write(payload, "Models/test.txt", "original resource");
         WriteManifest(payload, PackageVersion.ToString());
-        check(UpdateInstaller.ValidatePayload(payload, PackageVersion, "portable").Files.Count == 3, "Valid complete file manifest and executable version pass verification");
+        check(UpdateInstaller.ValidatePayload(payload, PackageVersion).Files.Count == 3, "Valid complete file manifest and executable version pass verification");
         Write(payload, "Models/test.txt", "tampered resource");
-        Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, PackageVersion, "portable"), check, "Payload file hash mismatch rejected");
+        Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, PackageVersion), check, "Payload file hash mismatch rejected");
         WriteManifest(payload, PackageVersion.ToString());
         Write(payload, "unexpected.txt", "unlisted file");
-        Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, PackageVersion, "portable"), check, "Unlisted payload file rejected");
+        Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, PackageVersion), check, "Unlisted payload file rejected");
         File.Delete(Path.Combine(payload, "unexpected.txt"));
-        Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, new Version(99, 0, 0, 0), "portable"), check, "Release and manifest version mismatch rejected");
-        Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, PackageVersion, "lightweight"), check, "Release and manifest edition mismatch rejected");
+        Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, new Version(99, 0, 0, 0)), check, "Release and manifest version mismatch rejected");
+        WriteManifest(payload, PackageVersion.ToString(), "lightweight");
+        Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, PackageVersion), check, "Retired lightweight payload manifest is rejected");
+        Write(payload, "update-channel.txt", "lightweight");
+        WriteManifest(payload, PackageVersion.ToString());
+        Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, PackageVersion), check, "Portable manifest cannot disguise a lightweight payload channel");
+        Write(payload, "update-channel.txt", "portable");
         WriteManifest(payload, "99.0.0.0");
-        Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, new Version(99, 0, 0, 0), "portable"), check, "Executable version must match manifest and release");
+        Expect<InvalidDataException>(() => UpdateInstaller.ValidatePayload(payload, new Version(99, 0, 0, 0)), check, "Executable version must match manifest and release");
         var duplicate = new Dictionary<string, string> { ["file.txt"] = new string('a', 64), ["FILE.TXT"] = new string('a', 64) };
         File.WriteAllText(Path.Combine(payload, UpdateInstaller.ManifestName), JsonSerializer.Serialize(new { Version = PackageVersion.ToString(), Edition = "portable", Files = duplicate }));
         Expect<InvalidDataException>(() => UpdateInstaller.ReadManifest(payload), check, "Manifest case-colliding paths rejected");
@@ -268,6 +273,19 @@ internal static class UpdateInstallerChecks
             check(Read(target, "MCSkin3D.exe") == "old executable" && Read(target, "settings.ini") == "user preference sentinel", "Preparation does not alter the running installation");
         }
         check(!Directory.Exists(job), "Abandoned prepared update removes its own staging folder");
+        string legacyTarget = Path.Combine(root, "legacy-lightweight-migration");
+        Write(legacyTarget, "MCSkin3D.exe", "legacy lightweight application");
+        Write(legacyTarget, "update-channel.txt", "lightweight");
+        Write(legacyTarget, "settings.ini", "legacy preference sentinel");
+        Write(legacyTarget, "Skins/my-skin.png", "legacy skin sentinel");
+        WriteManifest(legacyTarget, "1.7.2.0", "lightweight");
+        using (var prepared = await UpdateInstaller.PrepareAsync(release, legacyTarget, client, null, CancellationToken.None).ConfigureAwait(false))
+        {
+            check(UpdateInstaller.ReadEdition(legacyTarget) == "lightweight", "Preparing portable migration leaves the legacy installation untouched");
+            UpdateInstaller.ApplyPreparedUpdate(prepared.DirectoryPath);
+            check(UpdateInstaller.ReadEdition(legacyTarget) == "portable" && UpdateInstaller.ReadManifest(legacyTarget).Edition == "portable", "Legacy lightweight installation migrates to the portable edition");
+            check(Read(legacyTarget, "settings.ini") == "legacy preference sentinel" && Read(legacyTarget, "Skins/my-skin.png") == "legacy skin sentinel", "Portable migration preserves legacy user settings and skins");
+        }
         byte[] corrupt = (byte[])bytes.Clone();
         corrupt[corrupt.Length - 1] ^= 1;
         handler.Content = () => new ByteArrayContent(corrupt);
@@ -293,12 +311,12 @@ internal static class UpdateInstallerChecks
         File.Copy(Path.Combine(AppContext.BaseDirectory, "MCSkin3D.exe"), Path.Combine(payload, "MCSkin3D.exe"));
         Write(payload, "update-channel.txt", "portable");
     }
-    private static void WriteManifest(string directory, string version)
+    private static void WriteManifest(string directory, string version, string edition = "portable")
     {
         var files = Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
             .Where(file => Path.GetFileName(file) != UpdateInstaller.ManifestName)
             .ToDictionary(file => Path.GetRelativePath(directory, file).Replace('\\', '/'), UpdateInstaller.HashFile);
-        File.WriteAllText(Path.Combine(directory, UpdateInstaller.ManifestName), JsonSerializer.Serialize(new UpdateManifest { Version = version, Edition = "portable", Files = files }));
+        File.WriteAllText(Path.Combine(directory, UpdateInstaller.ManifestName), JsonSerializer.Serialize(new UpdateManifest { Version = version, Edition = edition, Files = files }));
     }
     private static void Write(string directory, string relative, string text)
     {

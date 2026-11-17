@@ -64,8 +64,8 @@ namespace MCSkin3D
 		[Savable, DefaultValue(true)]
 		public static bool MinecraftLighting { get; set; } = true;
 		// A distinct key keeps old percentage fill values from becoming world-light levels.
-		[Savable, DefaultValue(8)]
-		public static int PreviewLightLevel { get; set; } = 8;
+		[Savable, DefaultValue(15)]
+		public static int PreviewLightLevel { get; set; } = 15;
 		// Zero preserves vanilla's directions; ignore the obsolete PreviewLightDirection key.
 		[Savable, DefaultValue(0)]
 		public static int PreviewLightAngle { get; set; }

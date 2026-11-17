@@ -46,7 +46,7 @@ internal static class LiveReleaseChecks
             string payload = Path.Combine(job, "payload");
             UpdateInstaller.ExtractPackage(Path.GetFullPath(args[localOption + 1]), payload, default);
             var manifest = UpdateInstaller.ReadManifest(payload);
-            UpdateInstaller.ValidatePayload(payload, Version.Parse(manifest.Version), edition);
+            UpdateInstaller.ValidatePayload(payload, Version.Parse(manifest.Version));
             Console.WriteLine("PASS published package manifest, executable version and file checksums");
         }
         else
@@ -54,14 +54,14 @@ internal static class LiveReleaseChecks
             using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
             client.DefaultRequestHeaders.UserAgent.ParseAdd("MCSkin3D-ReleaseVerification/2.0.0.0");
             client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
-            var checker = new UpdateChecker(client, new Version(1, 7, 2, 0), edition);
+            var checker = new UpdateChecker(client, new Version(1, 7, 2, 0));
             if (!await checker.CheckForUpdatesAsync(true)) throw new InvalidOperationException("Live release check failed: " + checker.LastError);
             Console.WriteLine("PASS GitHub latest release discovery: " + checker.LatestRelease.TagName + " / " + checker.LatestRelease.Asset.Name);
             if (string.IsNullOrWhiteSpace(checker.LatestRelease.Body)) throw new InvalidDataException("Release notes are missing.");
-            var upToDate = new UpdateChecker(client, checker.LatestRelease.Version, edition);
+            var upToDate = new UpdateChecker(client, checker.LatestRelease.Version);
             if (await upToDate.CheckForUpdatesAsync() || !upToDate.LastCheckSucceeded)
                 throw new InvalidOperationException("An installed current release must not update itself.");
-            var skipped = new UpdateChecker(client, new Version(1, 7, 2, 0), edition, () => checker.LatestRelease.Version.ToString());
+            var skipped = new UpdateChecker(client, new Version(1, 7, 2, 0), () => checker.LatestRelease.Version.ToString());
             if (await skipped.CheckForUpdatesAsync() || !await skipped.CheckForUpdatesAsync(true))
                 throw new InvalidOperationException("Live skip/manual bypass behavior failed.");
             using var prepared = await UpdateInstaller.PrepareAsync(checker.LatestRelease, target, client, null, default);
@@ -84,7 +84,9 @@ internal static class LiveReleaseChecks
             throw new InvalidOperationException("The update changed user skin, palette or settings data.");
         if (UpdateInstaller.HashFile(Path.Combine(target, "MCSkin3D.exe")) != UpdateInstaller.HashFile(Path.Combine(job, "payload", "MCSkin3D.exe")))
             throw new InvalidOperationException("The helper did not install the expected executable.");
-        Console.WriteLine("PASS production handoff, helper readiness/exit wait, executable replacement and exact user-data preservation");
+        if (UpdateInstaller.ReadEdition(target) != "portable" || UpdateInstaller.ReadManifest(target).Edition != "portable")
+            throw new InvalidOperationException("The updated installation is not the portable edition.");
+        Console.WriteLine("PASS production handoff, helper readiness/exit wait, portable installation and exact user-data preservation");
 
         Process restarted = null;
         for (int attempt = 0; attempt < 100 && restarted == null; attempt++)

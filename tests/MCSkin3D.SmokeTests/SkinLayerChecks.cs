@@ -156,7 +156,8 @@ internal static class SkinLayerChecks
             }
             var settings = new Paril.Settings.Settings(); settings.Structures.Add(typeof(GlobalSettings));
             settings.LoadDefaults();
-            check(PreviewRenderOptions.Current.LightLevel == 8, "World light defaults to the nearest midpoint, level 8");
+            check(PreviewRenderOptions.Current.LightLevel == 15 && PreviewRenderOptions.Defaults.LightLevel == 15,
+                "World light defaults to full daylight, level 15, in settings and render options");
             check(PreviewRenderOptions.Current.LightAngle == 0, "Light angle defaults to the original Minecraft directions");
             check(PreviewRenderOptions.Current.LightSurroundings, "Surroundings share Minecraft lighting by default");
             custom.Save(); customRendering.Save();
