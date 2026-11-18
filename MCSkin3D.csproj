@@ -23,6 +23,8 @@
     <Compile Include="Services\PreviewScene.cs" />
     <Compile Include="Services\FirstPersonPreview.cs" />
     <Compile Include="Forms\Editor.FirstPerson.cs" />
+    <Compile Include="Forms\Editor.PartVisibility.cs" />
+    <Compile Include="Forms\Editor.OrientationCube.cs" />
     <Compile Include="Services\SkinLayerGeometry.cs" />
     <Compile Include="Services\MinecraftPreviewLighting.cs" />
     <Compile Include="Settings\SkinLayerOptions.cs" />

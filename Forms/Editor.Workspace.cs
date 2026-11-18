@@ -184,6 +184,7 @@ namespace MCSkin3D
             _brightnessGroup.Anchor = _lightAngleGroup.Anchor = AnchorStyles.Left | AnchorStyles.Right;
             _toolOptionsArea.Controls.Add(_lightingOptionsColumn);
             InitializeFirstPerson();
+            InitializePartVisibility();
             _toolOptionsArea.Layout += (_, _) => UpdateToolOptionsHeight();
             panel4.Controls.Add(_workspaceBar);
             // Place the wrapping bar below the existing viewport toolbar, including in the popout.
@@ -223,13 +224,16 @@ namespace MCSkin3D
             {
                 splitContainer4.Panel1Collapsed = !_opening;
                 if (!_opening) return;
-                _selectedTool?.OptionsPanel?.ArrangeOptions(_toolOptionsArea.ClientSize.Width);
+                // Size the options row for this tool at the full panel width. The
+                // layer controls share its height; narrow tool options can scroll.
+                int optionsWidth = splitContainer4.Panel1.ClientSize.Width;
+                _selectedTool?.OptionsPanel?.ArrangeOptions(optionsWidth);
                 foreach (var group in new Control[] { _wingSpreadGroup, _brightnessGroup, _lightAngleGroup, _firstPersonGroup })
                 {
                     if (group == null) continue;
                     var row = group.Controls[0];
                     row.MaximumSize = new Size(Math.Max(190, Math.Min(460,
-                        _toolOptionsArea.ClientSize.Width - group.Margin.Horizontal - group.Padding.Horizontal - 8)), 0);
+                        optionsWidth - group.Margin.Horizontal - group.Padding.Horizontal - 8)), 0);
                     row.PerformLayout();
                     group.PerformLayout();
                 }
@@ -239,7 +243,7 @@ namespace MCSkin3D
                 // Measure rows from the groups' actual sizes, including margins.
                 int preferred = _toolOptionsArea.Padding.Vertical + 4;
                 int usedWidth = 0, flowRowHeight = 0;
-                int contentWidth = _toolOptionsArea.ClientSize.Width - _toolOptionsArea.Padding.Horizontal;
+                int contentWidth = optionsWidth - _toolOptionsArea.Padding.Horizontal;
                 foreach (Control control in _toolOptionsArea.Controls)
                 {
                     if (!control.Visible) continue;
@@ -352,6 +356,7 @@ namespace MCSkin3D
             _officialCapeLabel.Visible = CombinedEnabled && _workspaceCape?.IsReadOnly == true;
             bool has3DView = _currentViewMode != ViewMode.Orthographic;
             RefreshFirstPersonControls();
+            RefreshPartVisibilityLabels();
             _minecraftLightingButton.Visible = has3DView;
             bool showBrightness = has3DView && GlobalSettings.MinecraftLighting;
             _lightingOptionsColumn.Visible = IsFirstPersonView || showBrightness;
@@ -683,6 +688,7 @@ namespace MCSkin3D
 
         private void FinishStroke()
         {
+            CancelCubeGesture();
             if (!_mouseIsDown || _lastSkin == null) return;
             rendererControl_MouseUp(Renderer, new MouseEventArgs(_strokeButton, 1, _mousePoint.X, _mousePoint.Y, 0));
         }

@@ -42,7 +42,16 @@ namespace MCSkin3D
 		public void MouseMove(Skin skin, MouseEventArgs e)
 		{
 			if (Editor.MainForm.IsFirstPersonView) return;
-			var delta = new Point(e.X - _oldMouse.X, e.Y - _oldMouse.Y);
+			var delta = DragDelta(e.Location);
+			if (e.Button == Editor.MainForm.CameraRotate)
+				Editor.MainForm.RotateView(delta, 1);
+			else if (e.Button == Editor.MainForm.CameraZoom)
+				Editor.MainForm.ScaleView(delta, 1);
+		}
+
+		internal Point DragDelta(Point location)
+		{
+			var delta = new Point(location.X - _oldMouse.X, location.Y - _oldMouse.Y);
 			Point position = Cursor.Position;
 
 			if (GlobalSettings.InfiniteMouse)
@@ -78,15 +87,12 @@ namespace MCSkin3D
 				if (wasWrapped)
 					_oldMouse = Editor.MainForm.Renderer.PointToClient(Cursor.Position);
 				else
-					_oldMouse = e.Location;
+					_oldMouse = location;
 			}
 			else
-				_oldMouse = e.Location;
+				_oldMouse = location;
 
-			if (e.Button == Editor.MainForm.CameraRotate)
-				Editor.MainForm.RotateView(delta, 1);
-			else if (e.Button == Editor.MainForm.CameraZoom)
-				Editor.MainForm.ScaleView(delta, 1);
+			return delta;
 		}
 
 		public bool MouseMoveOnSkin(ColorGrabber pixels, Skin skin, int x, int y)

@@ -126,11 +126,8 @@
 			this.bROWSEIDToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.splitContainer1 = new Paril.Controls.VisibleSplitContainer();
 			this.splitContainer3 = new Paril.Controls.VisibleSplitContainer();
-			this.tabControl1 = new System.Windows.Forms.TabControl();
-			this.tabPage1 = new System.Windows.Forms.TabPage();
 			this.treeView1 = new MCSkin3D.SkinTreeView();
 			this.toolStrip2 = new MCSkin3D.Controls.SkinTreeViewToolBar();
-			this.tabPage2 = new System.Windows.Forms.TabPage();
 			this.treeView2 = new System.Windows.Forms.TreeView();
 			this.hScrollBar1 = new System.Windows.Forms.HScrollBar();
 			this.colorPanel = new MCSkin3D.Controls.ColorPanel();
@@ -153,19 +150,6 @@
 			this.resetCameraToolStripButton = new System.Windows.Forms.ToolStripButton();
 			this.screenshotToolStripButton = new System.Windows.Forms.ToolStripButton();
 			this.toolStripSeparator9 = new System.Windows.Forms.ToolStripSeparator();
-			this.toggleHeadToolStripButton = new System.Windows.Forms.ToolStripButton();
-			this.toggleChestToolStripButton = new System.Windows.Forms.ToolStripButton();
-			this.toggleLeftArmToolStripButton = new System.Windows.Forms.ToolStripButton();
-			this.toggleRightArmToolStripButton = new System.Windows.Forms.ToolStripButton();
-			this.toggleLeftLegToolStripButton = new System.Windows.Forms.ToolStripButton();
-			this.toggleRightLegToolStripButton = new System.Windows.Forms.ToolStripButton();
-			this.toggleHelmetToolStripButton = new System.Windows.Forms.ToolStripButton();
-			this.toggleChestArmorToolStripButton = new System.Windows.Forms.ToolStripButton();
-			this.toggleLeftArmArmorToolStripButton = new System.Windows.Forms.ToolStripButton();
-			this.toggleRightArmArmorToolStripButton = new System.Windows.Forms.ToolStripButton();
-			this.toggleLeftLegArmorToolStripButton = new System.Windows.Forms.ToolStripButton();
-			this.toggleRightLegArmorToolStripButton = new System.Windows.Forms.ToolStripButton();
-			this.toolStripSeparator15 = new System.Windows.Forms.ToolStripSeparator();
 			this.toolStripDropDownButton1 = new System.Windows.Forms.ToolStripDropDownButton();
 			this.toolStripButton7 = new System.Windows.Forms.ToolStripButton();
 			this.toolStripButton1 = new System.Windows.Forms.ToolStripButton();
@@ -182,9 +166,6 @@
 			this.splitContainer3.Panel1.SuspendLayout();
 			this.splitContainer3.Panel2.SuspendLayout();
 			this.splitContainer3.SuspendLayout();
-			this.tabControl1.SuspendLayout();
-			this.tabPage1.SuspendLayout();
-			this.tabPage2.SuspendLayout();
 			this.panel4.SuspendLayout();
 			((System.ComponentModel.ISupportInitialize)(this.splitContainer4)).BeginInit();
 			this.splitContainer4.SuspendLayout();
@@ -1060,7 +1041,8 @@
 			// 
 			// splitContainer3.Panel1
 			// 
-			this.splitContainer3.Panel1.Controls.Add(this.tabControl1);
+			this.splitContainer3.Panel1.Controls.Add(this.treeView1);
+			this.splitContainer3.Panel1.Controls.Add(this.toolStrip2);
 			this.splitContainer3.Panel1.Controls.Add(this.hScrollBar1);
 			// 
 			// splitContainer3.Panel2
@@ -1069,31 +1051,6 @@
 			this.splitContainer3.Size = new System.Drawing.Size(302, 707);
 			this.splitContainer3.SplitterDistance = 426;
 			this.splitContainer3.TabIndex = 1;
-			// 
-			// tabControl1
-			// 
-			this.tabControl1.Controls.Add(this.tabPage1);
-			this.tabControl1.Controls.Add(this.tabPage2);
-			this.tabControl1.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.tabControl1.Location = new System.Drawing.Point(0, 0);
-			this.tabControl1.Margin = new System.Windows.Forms.Padding(0);
-			this.tabControl1.Multiline = true;
-			this.tabControl1.Name = "tabControl1";
-			this.tabControl1.SelectedIndex = 0;
-			this.tabControl1.Size = new System.Drawing.Size(302, 409);
-			this.tabControl1.TabIndex = 0;
-			// 
-			// tabPage1
-			// 
-			this.tabPage1.Controls.Add(this.treeView1);
-			this.tabPage1.Controls.Add(this.toolStrip2);
-			this.tabPage1.Location = new System.Drawing.Point(4, 22);
-			this.tabPage1.Margin = new System.Windows.Forms.Padding(0);
-			this.tabPage1.Name = "tabPage1";
-			this.tabPage1.Size = new System.Drawing.Size(294, 383);
-			this.tabPage1.TabIndex = 0;
-			this.tabPage1.Text = "Skins";
-			this.tabPage1.UseVisualStyleBackColor = true;
 			// 
 			// treeView1
 			// 
@@ -1129,25 +1086,14 @@
 			this.toolStrip2.TabIndex = 6;
 			this.toolStrip2.Text = "toolStrip2";
 			// 
-			// tabPage2
-			// 
-			this.tabPage2.Controls.Add(this.treeView2);
-			this.tabPage2.Location = new System.Drawing.Point(4, 22);
-			this.tabPage2.Margin = new System.Windows.Forms.Padding(0);
-			this.tabPage2.Name = "tabPage2";
-			this.tabPage2.Size = new System.Drawing.Size(294, 383);
-			this.tabPage2.TabIndex = 1;
-			this.tabPage2.Text = "Parts";
-			this.tabPage2.UseVisualStyleBackColor = true;
-			// 
 			// treeView2
 			// 
 			this.treeView2.BorderStyle = System.Windows.Forms.BorderStyle.None;
-			this.treeView2.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.treeView2.Margin = new System.Windows.Forms.Padding(4);
 			this.treeView2.HideSelection = false;
 			this.treeView2.Location = new System.Drawing.Point(0, 0);
 			this.treeView2.Name = "treeView2";
-			this.treeView2.Size = new System.Drawing.Size(294, 383);
+			this.treeView2.Size = new System.Drawing.Size(180, 88);
 			this.treeView2.TabIndex = 0;
 			this.treeView2.NodeMouseClick += new System.Windows.Forms.TreeNodeMouseClickEventHandler(this.treeView2_NodeMouseClick);
 			// 
@@ -1238,19 +1184,6 @@
             this.resetCameraToolStripButton,
             this.screenshotToolStripButton,
             this.toolStripSeparator9,
-            this.toggleHeadToolStripButton,
-            this.toggleChestToolStripButton,
-            this.toggleLeftArmToolStripButton,
-            this.toggleRightArmToolStripButton,
-            this.toggleLeftLegToolStripButton,
-            this.toggleRightLegToolStripButton,
-            this.toggleHelmetToolStripButton,
-            this.toggleChestArmorToolStripButton,
-            this.toggleLeftArmArmorToolStripButton,
-            this.toggleRightArmArmorToolStripButton,
-            this.toggleLeftLegArmorToolStripButton,
-            this.toggleRightLegArmorToolStripButton,
-            this.toolStripSeparator15,
             this.toolStripDropDownButton1,
             this.toolStripButton7,
             this.toolStripButton1});
@@ -1385,143 +1318,6 @@
 			this.toolStripSeparator9.Name = "toolStripSeparator9";
 			this.toolStripSeparator9.Size = new System.Drawing.Size(6, 25);
 			// 
-			// toggleHeadToolStripButton
-			// 
-			this.toggleHeadToolStripButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.toggleHeadToolStripButton.Image = global::MCSkin3D.Properties.Resources.show_head;
-			this.toggleHeadToolStripButton.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.toggleHeadToolStripButton.Name = "toggleHeadToolStripButton";
-			this.languageProvider1.SetPropertyNames(this.toggleHeadToolStripButton, "Text");
-			this.toggleHeadToolStripButton.Size = new System.Drawing.Size(23, 22);
-			this.toggleHeadToolStripButton.Text = "T_TOGGLEHEAD";
-			this.toggleHeadToolStripButton.Click += new System.EventHandler(this.toggleHeadToolStripButton_Click);
-			// 
-			// toggleChestToolStripButton
-			// 
-			this.toggleChestToolStripButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.toggleChestToolStripButton.Image = global::MCSkin3D.Properties.Resources.show_chest;
-			this.toggleChestToolStripButton.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.toggleChestToolStripButton.Name = "toggleChestToolStripButton";
-			this.languageProvider1.SetPropertyNames(this.toggleChestToolStripButton, "Text");
-			this.toggleChestToolStripButton.Size = new System.Drawing.Size(23, 22);
-			this.toggleChestToolStripButton.Text = "T_TOGGLECHEST";
-			this.toggleChestToolStripButton.Click += new System.EventHandler(this.toggleChestToolStripButton_Click);
-			// 
-			// toggleLeftArmToolStripButton
-			// 
-			this.toggleLeftArmToolStripButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.toggleLeftArmToolStripButton.Image = global::MCSkin3D.Properties.Resources.show_left_arm;
-			this.toggleLeftArmToolStripButton.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.toggleLeftArmToolStripButton.Name = "toggleLeftArmToolStripButton";
-			this.languageProvider1.SetPropertyNames(this.toggleLeftArmToolStripButton, "Text");
-			this.toggleLeftArmToolStripButton.Size = new System.Drawing.Size(23, 22);
-			this.toggleLeftArmToolStripButton.Text = "T_TOGGLELEFTARM";
-			this.toggleLeftArmToolStripButton.Click += new System.EventHandler(this.toggleLeftArmToolStripButton_Click);
-			// 
-			// toggleRightArmToolStripButton
-			// 
-			this.toggleRightArmToolStripButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.toggleRightArmToolStripButton.Image = global::MCSkin3D.Properties.Resources.show_right_arm;
-			this.toggleRightArmToolStripButton.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.toggleRightArmToolStripButton.Name = "toggleRightArmToolStripButton";
-			this.languageProvider1.SetPropertyNames(this.toggleRightArmToolStripButton, "Text");
-			this.toggleRightArmToolStripButton.Size = new System.Drawing.Size(23, 22);
-			this.toggleRightArmToolStripButton.Text = "T_TOGGLERIGHTARM";
-			this.toggleRightArmToolStripButton.Click += new System.EventHandler(this.toggleRightArmToolStripButton_Click);
-			// 
-			// toggleLeftLegToolStripButton
-			// 
-			this.toggleLeftLegToolStripButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.toggleLeftLegToolStripButton.Image = global::MCSkin3D.Properties.Resources.show_left_leg;
-			this.toggleLeftLegToolStripButton.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.toggleLeftLegToolStripButton.Name = "toggleLeftLegToolStripButton";
-			this.languageProvider1.SetPropertyNames(this.toggleLeftLegToolStripButton, "Text");
-			this.toggleLeftLegToolStripButton.Size = new System.Drawing.Size(23, 22);
-			this.toggleLeftLegToolStripButton.Text = "T_TOGGLELEFTLEG";
-			this.toggleLeftLegToolStripButton.Click += new System.EventHandler(this.toggleLeftLegToolStripButton_Click);
-			// 
-			// toggleRightLegToolStripButton
-			// 
-			this.toggleRightLegToolStripButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.toggleRightLegToolStripButton.Image = global::MCSkin3D.Properties.Resources.show_right_leg;
-			this.toggleRightLegToolStripButton.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.toggleRightLegToolStripButton.Name = "toggleRightLegToolStripButton";
-			this.languageProvider1.SetPropertyNames(this.toggleRightLegToolStripButton, "Text");
-			this.toggleRightLegToolStripButton.Size = new System.Drawing.Size(23, 22);
-			this.toggleRightLegToolStripButton.Text = "T_TOGGLERIGHTLEG";
-			this.toggleRightLegToolStripButton.Click += new System.EventHandler(this.toggleRightLegToolStripButton_Click);
-			// 
-			// toggleHelmetToolStripButton
-			// 
-			this.toggleHelmetToolStripButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.toggleHelmetToolStripButton.Image = global::MCSkin3D.Properties.Resources.show_helmet;
-			this.toggleHelmetToolStripButton.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.toggleHelmetToolStripButton.Name = "toggleHelmetToolStripButton";
-			this.languageProvider1.SetPropertyNames(this.toggleHelmetToolStripButton, "Text");
-			this.toggleHelmetToolStripButton.Size = new System.Drawing.Size(23, 22);
-			this.toggleHelmetToolStripButton.Text = "T_TOGGLEHELMET";
-			this.toggleHelmetToolStripButton.Click += new System.EventHandler(this.toggleHelmetToolStripButton_Click);
-			// 
-			// toggleChestArmorToolStripButton
-			// 
-			this.toggleChestArmorToolStripButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.toggleChestArmorToolStripButton.Image = global::MCSkin3D.Properties.Resources.show_chest_armor;
-			this.toggleChestArmorToolStripButton.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.toggleChestArmorToolStripButton.Name = "toggleChestArmorToolStripButton";
-			this.languageProvider1.SetPropertyNames(this.toggleChestArmorToolStripButton, "Text");
-			this.toggleChestArmorToolStripButton.Size = new System.Drawing.Size(23, 22);
-			this.toggleChestArmorToolStripButton.Text = "T_TOGGLECHESTARMOR";
-			this.toggleChestArmorToolStripButton.Click += new System.EventHandler(this.toggleChestArmorToolStripButton_Click);
-			// 
-			// toggleLeftArmArmorToolStripButton
-			// 
-			this.toggleLeftArmArmorToolStripButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.toggleLeftArmArmorToolStripButton.Image = global::MCSkin3D.Properties.Resources.show_left_arm_armor;
-			this.toggleLeftArmArmorToolStripButton.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.toggleLeftArmArmorToolStripButton.Name = "toggleLeftArmArmorToolStripButton";
-			this.languageProvider1.SetPropertyNames(this.toggleLeftArmArmorToolStripButton, "Text");
-			this.toggleLeftArmArmorToolStripButton.Size = new System.Drawing.Size(23, 22);
-			this.toggleLeftArmArmorToolStripButton.Text = "T_TOGGLELEFTARMARMOR";
-			this.toggleLeftArmArmorToolStripButton.Click += new System.EventHandler(this.toggleLeftArmArmorToolStripButton_Click);
-			// 
-			// toggleRightArmArmorToolStripButton
-			// 
-			this.toggleRightArmArmorToolStripButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.toggleRightArmArmorToolStripButton.Image = global::MCSkin3D.Properties.Resources.show_right_arm_armor;
-			this.toggleRightArmArmorToolStripButton.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.toggleRightArmArmorToolStripButton.Name = "toggleRightArmArmorToolStripButton";
-			this.languageProvider1.SetPropertyNames(this.toggleRightArmArmorToolStripButton, "Text");
-			this.toggleRightArmArmorToolStripButton.Size = new System.Drawing.Size(23, 22);
-			this.toggleRightArmArmorToolStripButton.Text = "T_TOGGLERIGHTARMARMOR";
-			this.toggleRightArmArmorToolStripButton.Click += new System.EventHandler(this.toggleRightArmArmorToolStripButton_Click);
-			// 
-			// toggleLeftLegArmorToolStripButton
-			// 
-			this.toggleLeftLegArmorToolStripButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.toggleLeftLegArmorToolStripButton.Image = global::MCSkin3D.Properties.Resources.show_left_leg_armor;
-			this.toggleLeftLegArmorToolStripButton.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.toggleLeftLegArmorToolStripButton.Name = "toggleLeftLegArmorToolStripButton";
-			this.languageProvider1.SetPropertyNames(this.toggleLeftLegArmorToolStripButton, "Text");
-			this.toggleLeftLegArmorToolStripButton.Size = new System.Drawing.Size(23, 22);
-			this.toggleLeftLegArmorToolStripButton.Text = "T_TOGGLELEFTLEGARMOR";
-			this.toggleLeftLegArmorToolStripButton.Click += new System.EventHandler(this.toggleLeftLegArmorToolStripButton_Click);
-			// 
-			// toggleRightLegArmorToolStripButton
-			// 
-			this.toggleRightLegArmorToolStripButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.toggleRightLegArmorToolStripButton.Image = global::MCSkin3D.Properties.Resources.show_right_leg_armor;
-			this.toggleRightLegArmorToolStripButton.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.toggleRightLegArmorToolStripButton.Name = "toggleRightLegArmorToolStripButton";
-			this.languageProvider1.SetPropertyNames(this.toggleRightLegArmorToolStripButton, "Text");
-			this.toggleRightLegArmorToolStripButton.Size = new System.Drawing.Size(23, 22);
-			this.toggleRightLegArmorToolStripButton.Text = "T_TOGGLERIGHTLEGARMOR";
-			this.toggleRightLegArmorToolStripButton.Click += new System.EventHandler(this.toggleRightLegArmorToolStripButton_Click);
-			// 
-			// toolStripSeparator15
-			// 
-			this.toolStripSeparator15.Name = "toolStripSeparator15";
-			this.toolStripSeparator15.Size = new System.Drawing.Size(6, 25);
-			// 
 			// toolStripDropDownButton1
 			// 
 			this.toolStripDropDownButton1.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
@@ -1610,10 +1406,6 @@
 			this.splitContainer3.Panel2.ResumeLayout(false);
 			((System.ComponentModel.ISupportInitialize)(this.splitContainer3)).EndInit();
 			this.splitContainer3.ResumeLayout(false);
-			this.tabControl1.ResumeLayout(false);
-			this.tabPage1.ResumeLayout(false);
-			this.tabPage1.PerformLayout();
-			this.tabPage2.ResumeLayout(false);
 			this.panel4.ResumeLayout(false);
 			this.panel4.PerformLayout();
 			((System.ComponentModel.ISupportInitialize)(this.splitContainer4)).EndInit();
@@ -1702,13 +1494,6 @@
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator4;
 		private System.Windows.Forms.ToolStripButton screenshotToolStripButton;
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator9;
-		private System.Windows.Forms.ToolStripButton toggleHeadToolStripButton;
-		private System.Windows.Forms.ToolStripButton toggleChestArmorToolStripButton;
-		private System.Windows.Forms.ToolStripButton toggleChestToolStripButton;
-		private System.Windows.Forms.ToolStripButton toggleLeftArmToolStripButton;
-		private System.Windows.Forms.ToolStripButton toggleRightArmToolStripButton;
-		private System.Windows.Forms.ToolStripButton toggleLeftLegToolStripButton;
-		private System.Windows.Forms.ToolStripButton toggleRightLegToolStripButton;
 		private System.Windows.Forms.ToolStripButton hybridToolStripButton;
 		private System.Windows.Forms.ToolStripMenuItem hybridViewToolStripMenuItem;
 		private System.Windows.Forms.StatusStrip statusStrip1;
@@ -1721,7 +1506,6 @@
 		private System.Windows.Forms.ToolStripSeparator toolStripMenuItem5;
 		private System.Windows.Forms.ToolStripMenuItem mFETCHNAMEToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem mSKINDIRSToolStripMenuItem;
-		private System.Windows.Forms.ToolStripSeparator toolStripSeparator15;
 		private System.Windows.Forms.ToolStripDropDownButton toolStripDropDownButton1;
 		private System.Windows.Forms.ToolStripButton resetCameraToolStripButton;
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator16;
@@ -1743,22 +1527,14 @@
 		private System.Windows.Forms.ToolStripMenuItem gridEnabledToolStripMenuItem;
 		private Paril.Controls.NumericUpDownMenuItem mGRIDOPACITYToolStripMenuItem;
 		private Controls.ColorToolStripMenuItem mGRIDCOLORToolStripMenuItem;
-		private System.Windows.Forms.TabControl tabControl1;
-		private System.Windows.Forms.TabPage tabPage1;
 		private SkinTreeView treeView1;
 		private Controls.SkinTreeViewToolBar toolStrip2;
-		private System.Windows.Forms.TabPage tabPage2;
 		private System.Windows.Forms.TreeView treeView2;
 		private Controls.SkinTreeViewToolBar miniToolStrip;
 		private System.Windows.Forms.ToolStripSeparator toolStripMenuItem1;
 		private System.Windows.Forms.ToolStripMenuItem officialMinecraftForumsThreadToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem planetMinecraftSubmissionToolStripMenuItem;
 		public Languages.LanguageProvider languageProvider1;
-		private System.Windows.Forms.ToolStripButton toggleHelmetToolStripButton;
-		private System.Windows.Forms.ToolStripButton toggleLeftArmArmorToolStripButton;
-		private System.Windows.Forms.ToolStripButton toggleRightArmArmorToolStripButton;
-		private System.Windows.Forms.ToolStripButton toggleLeftLegArmorToolStripButton;
-		private System.Windows.Forms.ToolStripButton toggleRightLegArmorToolStripButton;
 		private System.Windows.Forms.ToolStripMenuItem chestArmorToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem leftArmArmorToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem rightArmArmorToolStripMenuItem;

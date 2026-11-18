@@ -70,12 +70,14 @@ internal static partial class Program
                 if (args.Contains("--benchmark-render")) Run("3D layer rendering performance", BenchmarkLayerRendering);
                 else if (args.Contains("--render-quality")) Run("Minecraft colors, resolution and antialiasing", RenderQuality);
                 else if (args.Contains("--first-person")) Run("First-person rendering, stable lighting controls, hands and painting", FirstPerson);
+                else if (args.Contains("--viewport-controls")) ViewportControls();
                 else
                 {
                     if (args.Contains("--benchmark")) Run("Picking performance and deterministic results", BenchmarkPicking);
                     Run("Perspective, texture and hybrid OpenGL frames", Rendering);
                     Run("Texture pixel formats, reload and resource lifetime", () => { editor.Renderer.MakeCurrent(); TextureChecks.Run(Check); });
                     Run("All tabs, square/wheel and English localization", TabsAndLanguage);
+                    ViewportControls();
                     Run("Pencil through viewport, undo, redo, save and reload", EditSaveReload);
                     Run("Eraser, eyedropper and fill through viewport", MoreEditingTools);
                     Run("Move edited skin preserves undo, texture and save destination", MoveEditedSkin);
@@ -89,6 +91,7 @@ internal static partial class Program
                     Run("First-person rendering, stable lighting controls, hands and painting", FirstPerson);
                     // This check pumps native messages and can import the desktop's live
                     // modifier-key state; keep it after deterministic painting checks.
+                    Run("Resized explorer arrow clicks", ExplorerArrows);
                     Run("Automatic updates do not block the editor", () => StartupUpdateChecks.Run(editor, Check));
                     Run("Update restart saves edits and honors cancellation", UpdateShutdown);
                 }

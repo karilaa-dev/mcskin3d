@@ -45,11 +45,9 @@ namespace MCSkin3D
 		private bool _canTryDragDrop;
 		private TreeNode _dragNode;
 		private TreeNode _hoverNode;
-		private Point _hoverPoint;
+		private const int NodeIndent = 20;
 		private int _newMaximum;
-		private int _numVisible;
 		private DragDropEffects _oldEffects = 0;
-		private int _oldScrollValue;
 		private TreeNode _overNode;
 		private int _scrollX;
 		private TreeNode dragDropNode;
@@ -81,6 +79,9 @@ namespace MCSkin3D
 			ItemHeight = 23;
 			FullRowSelect = true;
 			HotTracking = true;
+			// Disclosure is painted and hit-tested in client coordinates.
+			ShowPlusMinus = false;
+			SetStyle(ControlStyles.ResizeRedraw, true);
 			TreeViewNodeSorter = new SkinNodeSorter();
 			AllowDrop = true;
 
@@ -110,7 +111,7 @@ namespace MCSkin3D
 
 			set
 			{
-				_scrollX = value.X; // SetScrollPos((IntPtr)Handle, SB_HORZ, value.X, true);
+				_scrollX = Math.Max(0, value.X);
 				SetScrollPos(Handle, SB_VERT, value.Y, true);
 
 				Invalidate();
@@ -203,41 +204,22 @@ namespace MCSkin3D
 			return ((wndStyle & WS_VSCROLL) != 0);
 		}
 
-		protected override void OnSizeChanged(EventArgs e)
+		private int NodeIconX(TreeNode node) => (node.Level + 1) * LogicalToDeviceUnits(NodeIndent) - _scrollX;
+
+		private Rectangle ArrowBounds(TreeNode node)
 		{
-			_numVisible = (int)Math.Ceiling(Height / (float)ItemHeight);
-			base.OnSizeChanged(e);
+			int size = Math.Min(LogicalToDeviceUnits(16), ItemHeight);
+			return new Rectangle(NodeIconX(node) - size, node.Bounds.Top + (ItemHeight - size) / 2, size, size);
 		}
 
-		private TreeNode GetSelectedNodeAt(int y, TreeNode node, ref int currentIndex)
-		{
-			if (currentIndex >= ScrollPosition.Y + _numVisible)
-				return null;
-
-			if (y <= node.Bounds.Y + ItemHeight)
-				return node;
-
-			currentIndex++;
-
-			if (node.IsExpanded)
-			{
-				foreach (TreeNode child in node.Nodes)
-				{
-					TreeNode tryNode = GetSelectedNodeAt(y, child, ref currentIndex);
-
-					if (tryNode != null)
-						return tryNode;
-				}
-			}
-
-			return null;
-		}
+		private bool IsOnArrow(TreeNode node, Point point) =>
+			node != null && node is not Skin && node.Nodes.Count > 0 && ArrowBounds(node).Contains(point);
 
 		protected override void OnMouseDoubleClick(MouseEventArgs e)
 		{
 			base.OnMouseDoubleClick(e);
 
-			if (SelectedNode == lastClick && lastClick.IsExpanded == lastOpened)
+			if (lastClick != null && SelectedNode == lastClick && lastClick.IsExpanded == lastOpened && !IsOnArrow(lastClick, e.Location))
 				lastClick.Toggle();
 		}
 
@@ -248,9 +230,17 @@ namespace MCSkin3D
 			mouseDown = true;
 			base.OnMouseDown(e);
 			TreeNode node = GetSelectedNodeAt(e.Location);
+			bool onArrow = e.Button == MouseButtons.Left && IsOnArrow(node, e.Location);
 			SelectedNode = node;
 			lastClick = SelectedNode;
 			lastOpened = lastClick != null && lastClick.IsExpanded;
+			if (onArrow)
+			{
+				_canTryDragDrop = false;
+				if (e.Clicks == 1) node.Toggle();
+				Invalidate();
+				return;
+			}
 
 			if (verticalScrollBarVisible())
 			{
@@ -296,9 +286,9 @@ namespace MCSkin3D
 
 		protected override void OnMouseMove(MouseEventArgs e)
 		{
-			_hoverPoint = e.Location;
-			TreeNode hover = GetSelectedNodeAt(e.Location);
-			if (_hoverNode == null || _hoverNode != hover)
+			TreeNode node = GetSelectedNodeAt(e.Location);
+			TreeNode hover = IsOnArrow(node, e.Location) ? node : null;
+			if (_hoverNode != hover)
 			{
 				_hoverNode = hover;
 				Invalidate();
@@ -393,6 +383,8 @@ namespace MCSkin3D
 			mouseDown = false;
 			negativeTimer = false;
 			prevValue = 0;
+			_hoverNode = null;
+			Invalidate();
 			base.OnMouseLeave(e);
 		}
 
@@ -416,14 +408,10 @@ namespace MCSkin3D
 			if (e.Bounds.Width == 0 || e.Bounds.Height == 0)
 				return;
 
-			int realX = e.Bounds.X + ((e.Node.Level + 1) * 20);
+			int realX = NodeIconX(e.Node);
 
 			Size textLen = TextRenderer.MeasureText(e.Node.Text, Font);
-			if (realX + textLen.Width + ItemHeight + 15 > Width &&
-				_newMaximum < (realX + textLen.Width + ItemHeight + 15) - Width)
-				_newMaximum = (realX + textLen.Width + ItemHeight + 15) - Width;
-
-			realX -= _scrollX;
+			_newMaximum = Math.Max(_newMaximum, realX + _scrollX + textLen.Width + ItemHeight + 15 - ClientSize.Width);
 
 			e.Graphics.FillRectangle(new SolidBrush(BackColor), 0, e.Bounds.Y, Width, e.Bounds.Height);
 			Skin skin = e.Node is Skin ? (Skin)e.Node : null;
@@ -463,32 +451,11 @@ namespace MCSkin3D
 
 			if (skinIsNull && e.Node.Nodes.Count != 0)
 			{
-				if (e.Node.IsExpanded)
-				{
-					if ((e.State & TreeNodeStates.Hot) != 0)
-					{
-						e.Graphics.DrawImage(arrow_state_blue_expanded,
-											 new Rectangle(realX - 13, e.Bounds.Y + (ItemHeight / 2) - (16 / 2), 16, 16));
-					}
-					else
-					{
-						e.Graphics.DrawImage(arrow_state_grey_expanded,
-											 new Rectangle(realX - 13, e.Bounds.Y + (ItemHeight / 2) - (16 / 2), 16, 16));
-					}
-				}
-				else
-				{
-					if ((e.State & TreeNodeStates.Hot) != 0)
-					{
-						e.Graphics.DrawImage(arrow_state_blue_right,
-											 new Rectangle(realX - 13, e.Bounds.Y + (ItemHeight / 2) - (16 / 2), 16, 16));
-					}
-					else
-					{
-						e.Graphics.DrawImage(arrow_state_grey_right,
-											 new Rectangle(realX - 13, e.Bounds.Y + (ItemHeight / 2) - (16 / 2), 16, 16));
-					}
-				}
+				bool hot = e.Node == _hoverNode;
+				var arrow = e.Node.IsExpanded
+					? (hot ? arrow_state_blue_expanded : arrow_state_grey_expanded)
+					: (hot ? arrow_state_blue_right : arrow_state_grey_right);
+				e.Graphics.DrawImage(arrow, ArrowBounds(e.Node));
 			}
 
 			string text = e.Node.ToString();
@@ -503,18 +470,7 @@ namespace MCSkin3D
 
 		public TreeNode GetSelectedNodeAt(Point p)
 		{
-			int currentIndex = 0;
-
-			TreeNode node = null;
-			foreach (TreeNode child in Nodes)
-			{
-				node = GetSelectedNodeAt(p.Y, child, ref currentIndex);
-
-				if (node != null)
-					break;
-			}
-
-			return node;
+			return ClientRectangle.Contains(p) ? GetNodeAt(0, p.Y) : null;
 		}
 
 		private void RecursiveDrawCheck(PaintEventArgs args, TreeNode node, ref int currentIndex)
@@ -543,7 +499,6 @@ namespace MCSkin3D
 
 			if (!DesignMode)
 			{
-				_oldScrollValue = Editor.MainForm.hScrollBar1.Value;
 				_newMaximum = 0;
 			}
 
@@ -553,10 +508,15 @@ namespace MCSkin3D
 
 			if (!DesignMode)
 			{
-				Editor.MainForm.hScrollBar1.Maximum = _newMaximum;
-				Editor.MainForm.hScrollBar1.Value = _oldScrollValue;
-
-				Editor.MainForm.hScrollBar1.Visible = Editor.MainForm.hScrollBar1.Maximum != 0;
+				var scroll = Editor.MainForm.hScrollBar1;
+				scroll.Maximum = _newMaximum;
+				scroll.Visible = _newMaximum != 0;
+				scroll.Value = Math.Min(_scrollX, _newMaximum);
+				if (_scrollX > _newMaximum)
+				{
+					_scrollX = _newMaximum;
+					Invalidate();
+				}
 			}
 		}
 
