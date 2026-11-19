@@ -48,16 +48,17 @@ internal static class LiveReleaseChecks
         else
         {
             using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("MCSkin3D-ReleaseVerification/2.0.0.0");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("MCSkin3D-ReleaseVerification/" + typeof(UpdateChecker).Assembly.GetName().Version);
             client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
-            var checker = new UpdateChecker(client, new Version(1, 7, 2, 0));
+            var currentVersion = Version.Parse(FileVersionInfo.GetVersionInfo(Path.Combine(target, "MCSkin3D.exe")).FileVersion);
+            var checker = new UpdateChecker(client, currentVersion);
             if (!await checker.CheckForUpdatesAsync(true)) throw new InvalidOperationException("Live release check failed: " + checker.LastError);
             Console.WriteLine("PASS GitHub latest release discovery: " + checker.LatestRelease.TagName + " / " + checker.LatestRelease.Asset.Name);
             if (string.IsNullOrWhiteSpace(checker.LatestRelease.Body)) throw new InvalidDataException("Release notes are missing.");
             var upToDate = new UpdateChecker(client, checker.LatestRelease.Version);
             if (await upToDate.CheckForUpdatesAsync() || !upToDate.LastCheckSucceeded)
                 throw new InvalidOperationException("An installed current release must not update itself.");
-            var skipped = new UpdateChecker(client, new Version(1, 7, 2, 0), () => checker.LatestRelease.Version.ToString());
+            var skipped = new UpdateChecker(client, currentVersion, () => checker.LatestRelease.Version.ToString());
             if (await skipped.CheckForUpdatesAsync() || !await skipped.CheckForUpdatesAsync(true))
                 throw new InvalidOperationException("Live skip/manual bypass behavior failed.");
             using var prepared = await UpdateInstaller.PrepareAsync(checker.LatestRelease, target, client, null, default);
@@ -80,7 +81,8 @@ internal static class LiveReleaseChecks
             throw new InvalidOperationException("The update changed user skin, palette or settings data.");
         if (UpdateInstaller.HashFile(Path.Combine(target, "MCSkin3D.exe")) != UpdateInstaller.HashFile(Path.Combine(job, "payload", "MCSkin3D.exe")))
             throw new InvalidOperationException("The helper did not install the expected executable.");
-        if (UpdateInstaller.ReadManifest(target).Files.Count != 2) throw new InvalidOperationException("Expected the Minimal manifest.");
+        var installed = UpdateInstaller.ReadManifest(target);
+        if (installed.Files.Count != 2) throw new InvalidOperationException("Expected the Minimal manifest.");
         Console.WriteLine("PASS production handoff, verified Minimal installation and original user data");
 
         Process restarted = null;
@@ -99,7 +101,7 @@ internal static class LiveReleaseChecks
             if (restarted == null) await Task.Delay(100);
         }
         if (restarted == null) throw new InvalidOperationException("The updated editor was not restarted.");
-        using (restarted) await WaitForEditorAndCloseAsync(restarted);
+        using (restarted) await WaitForEditorAndCloseAsync(restarted, installed.Version);
         var preferences = File.ReadAllLines(Path.Combine(target, "settings.ini"));
         if (!new[] { "AutoUpdate=False", "PreviewLightLevel=6", "LegacyKey=keep", "SkippedUpdateVersion=" }.All(preferences.Contains))
             throw new InvalidOperationException("Old settings were not migrated with their values intact.");
@@ -112,7 +114,7 @@ internal static class LiveReleaseChecks
             File.Copy(Path.Combine(source, file), Path.Combine(fresh, file));
         using var firstLaunch = Process.Start(new ProcessStartInfo(Path.Combine(fresh, "MCSkin3D.exe"))
             { WorkingDirectory = fresh, UseShellExecute = false, WindowStyle = ProcessWindowStyle.Hidden });
-        await WaitForEditorAndCloseAsync(firstLaunch);
+        await WaitForEditorAndCloseAsync(firstLaunch, installed.Version);
         if (!File.ReadAllLines(Path.Combine(fresh, "settings.ini")).Contains("PreviewLightLevel=15") ||
             !File.Exists(Path.Combine(fresh, "Swatches", "Quick Picks.swtch")))
             throw new InvalidOperationException("Minimal did not initialize its settings and palette.");
@@ -122,7 +124,7 @@ internal static class LiveReleaseChecks
         Console.WriteLine("Release verification passed. Retained isolated files and backup: " + target);
     }
 
-    private static async Task WaitForEditorAndCloseAsync(Process editor)
+    private static async Task WaitForEditorAndCloseAsync(Process editor, string version)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         try
@@ -131,7 +133,7 @@ internal static class LiveReleaseChecks
             {
                 editor.Refresh();
                 if (editor.HasExited) throw new InvalidOperationException("The test editor exited during startup.");
-                if (editor.MainWindowTitle.Contains("MCSkin3D") && editor.MainWindowTitle.Contains("2.0.0.0")) break;
+                if (editor.MainWindowTitle.Contains("MCSkin3D") && editor.MainWindowTitle.EndsWith(" v" + version, StringComparison.Ordinal)) break;
                 await Task.Delay(100, timeout.Token);
             }
             Console.WriteLine("PASS editor opened: " + editor.MainWindowTitle);

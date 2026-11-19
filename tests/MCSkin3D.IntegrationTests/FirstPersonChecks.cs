@@ -474,7 +474,7 @@ internal static partial class Program
             }
             image.Save(skin.File.FullName);
         }
-        PNGMetadata.WriteMetadata(skin.File.FullName, new Dictionary<string, string> { ["Model"] = modelPath });
+        PNGMetadata.WriteMetadata(skin.File.FullName, Skin.ModelMetadata(modelPath));
         Check(skin.SetImages(false), "First-person fixture loads its asymmetric hand textures");
         return skin;
     }

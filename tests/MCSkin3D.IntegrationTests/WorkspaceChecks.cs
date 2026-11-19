@@ -216,8 +216,8 @@ internal static partial class Program
                     bitmap.SetPixel(x, y, (x + y) % 8 == 0 ? Color.FromArgb(160, color) : color);
             bitmap.Save(path);
         }
-        PNGMetadata.WriteMetadata(path, new Dictionary<string, string> { ["Model"] = modelPath });
-        var skin = new Skin(path) { Model = ModelLoader.GetModelForPath(modelPath) };
+        PNGMetadata.WriteMetadata(path, Skin.ModelMetadata(modelPath));
+        var skin = new Skin(path);
         (parent.Parent?.Nodes ?? Field<TreeView>(editor, "treeView1").Nodes).Add(skin);
         Check(skin.SetImages(), "Combined fixture loads");
         return skin;

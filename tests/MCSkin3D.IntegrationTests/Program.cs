@@ -32,6 +32,7 @@ internal static partial class Program
         scratch = Path.GetFullPath(args.FirstOrDefault(a => !a.StartsWith("--")) ?? Path.Combine(Path.GetTempPath(), "MCSkin3D-Integration-" + Guid.NewGuid().ToString("N")));
         if (Directory.Exists(scratch)) throw new IOException("Integration output directory must be new: " + scratch);
         Directory.CreateDirectory(scratch);
+        Skin.ModelChoicesDirectory = Path.Combine(scratch, "ModelChoices");
         Log("Artifacts: " + scratch);
         using var watchdog = new System.Threading.Timer(_ => { Log("FAIL: 90-second application watchdog expired (possible modal dialog or deadlock)."); Environment.Exit(124); }, null, 90000, Timeout.Infinite);
         try
@@ -59,6 +60,14 @@ internal static partial class Program
             var contextType = assembly.GetType("MCSkin3D.MCSkin3DAppContext", true);
             using var context = (ApplicationContext)Activator.CreateInstance(contextType, new object[] { scratch });
             editor = (Editor)contextType.GetField("Form").GetValue(context);
+            Run("Startup splash artwork and credits", () =>
+            {
+                var splash = Field<Form>(context, "SplashForm");
+                Check(splash.Visible && !editor.Visible, "Splash is visible before the editor opens");
+                CheckSplashLayout(splash, "splash");
+                splash.Scale(new SizeF(1.5f, 1.5f));
+                CheckSplashLayout(splash, "splash-scaled");
+            });
             using var timer = new System.Windows.Forms.Timer { Interval = 200 };
             timer.Tick += (_, _) =>
             {
@@ -84,6 +93,7 @@ internal static partial class Program
                     Run("Tool selection, camera and model visibility", ToolsAndModel);
                     Run("Loaded swatches, selection and persistence", Swatches);
                     Run("Clone and import PNG into skin tree", ImportClone);
+                    Run("One-time player model detection and manual overrides", PlayerModelSelection);
                     Run("Combined workspace painting, swaps, poses and global undo", CombinedWorkspace);
                     Run("Official cape rendering, pixel protection and visibility", OfficialCapePreview);
                     Run("3D skin layer rendering, editing, undo and preference", SkinLayers3D);
@@ -143,6 +153,26 @@ internal static partial class Program
             }
         }
         editor.PerformResetCamera();
+    }
+
+    private static void CheckSplashLayout(Form splash, string name)
+    {
+        using var frame = new Bitmap(splash.ClientSize.Width, splash.ClientSize.Height);
+        splash.DrawToBitmap(frame, splash.ClientRectangle);
+        frame.Save(Path.Combine(scratch, name + ".png"));
+        var artwork = (Bitmap)splash.BackgroundImage;
+        Color expected = artwork.GetPixel(24, 80);
+        Color actual = frame.GetPixel(24 * frame.Width / artwork.Width, 80 * frame.Height / artwork.Height);
+        Check(Math.Abs(actual.B - expected.B) < 10 && Math.Abs(actual.R - expected.R) < 10, "Splash artwork fills the scaled window");
+        var labels = splash.Controls.OfType<Label>().ToArray();
+        Check(labels.Any(l => l.Text.Contains("karilaa-dev")), "Splash credits karilaa-dev");
+        foreach (var label in labels)
+        {
+            var text = label.GetPreferredSize(Size.Empty);
+            Check(label.Visible && splash.ClientRectangle.Contains(label.Bounds) && label.Width >= text.Width && label.Height >= text.Height,
+                "Splash label fits at " + frame.Size + ": " + label.Text);
+            Check(!labels.Any(other => other != label && other.Bounds.IntersectsWith(label.Bounds)), "Splash labels have separate space");
+        }
     }
 
     private static void Startup()

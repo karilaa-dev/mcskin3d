@@ -283,9 +283,18 @@ internal static class Program
             bitmap.SetPixel(5, 9, Color.FromArgb(71, 20, 90, 180));
             bitmap.Save(png, ImageFormat.Png);
         }
+        // Legacy releases appended Model=Players/Alex after IEND, using a payload-only CRC.
+        using (var file = new FileStream(png, FileMode.Append))
+            file.Write(Convert.FromHexString("00000012744558744d6f64656c00506c61796572732f416c6578acc1b7d5"));
+        Check(PNGMetadata.ReadMetadata(png)["Model"] == "Players/Alex", "Recognizes model metadata from earlier editor versions");
         PNGMetadata.WriteMetadata(png, new Dictionary<string, string> { { "Model", "Players/Steve" }, { "Test", "round-trip" } });
         var metadata = PNGMetadata.ReadMetadata(png);
         Check(metadata["Model"] == "Players/Steve" && metadata["Test"] == "round-trip", "PNG text metadata must survive reload");
+        byte[] updated = File.ReadAllBytes(png);
+        Check(updated.AsSpan(updated.Length - 8, 4).SequenceEqual("IEND"u8), "Migrated model metadata is inside the PNG");
+        PNGMetadata.WriteMetadata(png, Skin.ModelMetadata("Players/自作"));
+        metadata = PNGMetadata.ReadMetadata(png);
+        Check(metadata["Model"] == "Players/自作" && metadata["ModelChecked"] == "1" && metadata["Test"] == "round-trip", "Manual Unicode model choices round-trip and retain unrelated metadata");
         using var loaded = new Bitmap(png);
         Check(loaded.Width == 64 && loaded.Height == 64, "PNG size must survive reload");
         Check(loaded.GetPixel(5, 9).ToArgb() == Color.FromArgb(71, 20, 90, 180).ToArgb(), "PNG must preserve RGBA pixels");

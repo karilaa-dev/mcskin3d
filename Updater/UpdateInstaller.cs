@@ -52,7 +52,7 @@ namespace MCSkin3D.UpdateSystem
         private static HttpClient CreateDownloadClient()
         {
             var client = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("MCSkin3D/2.0.0.0");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("MCSkin3D/" + typeof(UpdateInstaller).Assembly.GetName().Version);
             return client;
         }
 

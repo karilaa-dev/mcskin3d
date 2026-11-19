@@ -16,16 +16,23 @@ namespace MCSkin3D
 		{
 			Program.Context = this;
 			Environment.CurrentDirectory = Path.GetFullPath(dataDirectory ?? AppContext.BaseDirectory);
-			GlobalSettings.Load();
-
 			SplashForm = new Splash();
-			Updater = new UpdateSystem.UpdateChecker();
-
-			Form = new Editor();
-			Form.FormClosing += (sender, e) => GlobalSettings.Save();
-			Form.FormClosed += (sender, e) => ExitThread();
-
 			SplashForm.Show();
+			SplashForm.Update();
+			try
+			{
+				GlobalSettings.Load();
+				Updater = new UpdateSystem.UpdateChecker();
+				Form = new Editor();
+				Form.FormClosing += (sender, e) => GlobalSettings.Save();
+				Form.FormClosed += (sender, e) => ExitThread();
+				SplashForm.BeginLoaderThread();
+			}
+			catch
+			{
+				SplashForm.Dispose();
+				throw;
+			}
 		}
 
 		public void DoneLoadingSplash()

@@ -23,6 +23,7 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.Windows.Forms;
 using MCSkin3D.Forms;
+using MCSkin3D.Services;
 using Microsoft.VisualBasic.FileIO;
 using OpenTK.Mathematics;
 using Paril.Components;
@@ -69,6 +70,64 @@ namespace MCSkin3D
 		}
 
 		public Model Model { get; set; }
+		internal bool ModelChecked { get; private set; }
+		internal static string ModelChoicesDirectory { get; set; } = Path.Combine(
+			Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MCSkin3D", "ModelChoices");
+
+		internal static Dictionary<string, string> ModelMetadata(string modelPath, bool modelChecked = true)
+		{
+			var data = new Dictionary<string, string> { ["Model"] = modelPath };
+			if (modelChecked) data["ModelChecked"] = "1";
+			return data;
+		}
+
+		internal bool CheckPlayerModel()
+		{
+			if (ModelChecked || IsReadOnly || Model == null || !PlayerSkinModel.IsPlayer(Model.Path)) return false;
+			string detected;
+			using (var image = new Bitmap(File.FullName))
+				detected = PlayerSkinModel.Detect(image);
+			var previous = Model;
+			if (detected != null) Model = ModelLoader.GetModelForPath(detected) ?? previous;
+			RememberModel();
+			if (previous != Model && GLImage != null) SetTransparentParts();
+			return previous != Model;
+		}
+
+		// A library can be on read-only media. Scope its local preference to this file revision.
+		private static string CachedModelPath(FileInfo file)
+		{
+			string identity = $"{file.FullName.ToUpperInvariant()}\n{file.Length}\n{file.LastWriteTimeUtc.Ticks}";
+			byte[] hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(identity));
+			return Path.Combine(ModelChoicesDirectory, Convert.ToHexString(hash));
+		}
+
+		internal void RememberModel()
+		{
+			ModelChecked = true;
+			var file = File;
+			string cached = System.IO.Directory.Exists(ModelChoicesDirectory) ? CachedModelPath(file) : null;
+			try
+			{
+				PNGMetadata.WriteMetadata(file.FullName, ModelMetadata(Model.Path));
+				if (cached != null && System.IO.File.Exists(cached)) System.IO.File.Delete(cached);
+			}
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+			{
+				cached ??= CachedModelPath(file);
+				System.IO.Directory.CreateDirectory(ModelChoicesDirectory);
+				string temporary = cached + "." + Guid.NewGuid().ToString("N");
+				try
+				{
+					System.IO.File.WriteAllText(temporary, Model.Path);
+					System.IO.File.Move(temporary, cached, true);
+				}
+				finally
+				{
+					if (System.IO.File.Exists(temporary)) System.IO.File.Delete(temporary);
+				}
+			}
+		}
 
 		public int Width
 		{
@@ -181,27 +240,21 @@ namespace MCSkin3D
 
 				if (Model == null)
 				{
-					Dictionary<string, string> metadata = PNGMetadata.ReadMetadata(File.FullName);
-
-					if (metadata.ContainsKey("Model"))
+					var file = File;
+					var metadata = PNGMetadata.ReadMetadata(file.FullName);
+					if (metadata.TryGetValue("Model", out var modelPath))
+						Model = ModelLoader.GetModelForPath(modelPath);
+					ModelChecked = Model != null && metadata.GetValueOrDefault("ModelChecked") == "1";
+					if (System.IO.Directory.Exists(ModelChoicesDirectory))
 					{
-						Model = ModelLoader.GetModelForPath(metadata["Model"]);
-
-						if (Model == null)
+						string cached = CachedModelPath(file);
+						if (System.IO.File.Exists(cached) && ModelLoader.GetModelForPath(System.IO.File.ReadAllText(cached)) is Model saved)
 						{
-							if (image.Height == 64)
-								Model = ModelLoader.GetModelForPath("Players/Steve");
-							else
-								Model = ModelLoader.GetModelForPath("Players/Steve (Minimal)");
+							Model = saved;
+							ModelChecked = true;
 						}
 					}
-					else
-					{
-						if (image.Height == 64)
-							Model = ModelLoader.GetModelForPath("Players/Steve");
-						else
-							Model = ModelLoader.GetModelForPath("Players/Steve (Minimal)");
-					}
+					Model ??= ModelLoader.GetModelForPath(PlayerSkinModel.PathFor(false, image.Width != image.Height));
 				}
 			}
 			catch (Exception)
@@ -279,9 +332,7 @@ namespace MCSkin3D
 					newBitmap.Save(File.FullName);
 					newBitmap.Dispose();
 
-					var md = new Dictionary<string, string>();
-					md.Add("Model", Model.Path);
-					PNGMetadata.WriteMetadata(File.FullName, md);
+					PNGMetadata.WriteMetadata(File.FullName, ModelMetadata(Model.Path, ModelChecked));
 
 					SetImages(true);
 
@@ -352,9 +403,7 @@ namespace MCSkin3D
 
 				newBitmap.Save(File.FullName);
 
-				var md = new Dictionary<string, string>();
-				md.Add("Model", Model.Path);
-				PNGMetadata.WriteMetadata(File.FullName, md);
+				PNGMetadata.WriteMetadata(File.FullName, ModelMetadata(Model.Path, ModelChecked));
 			}
 
 			SetImages();

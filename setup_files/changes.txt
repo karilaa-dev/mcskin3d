@@ -1,3 +1,11 @@
+Version 2.1.0.0
+- Detect Alex and Steve on first open and remember later manual model choices
+- Use the Mojang profile model when importing a skin by nickname
+- Highlight and click cube faces, edges and corners to snap the camera, or drag to orbit
+- Toggle both skin layers with character-shaped controls under one toolbar button
+- Fix folder arrow hit targets after resizing or scrolling and remove the duplicate Parts tab
+- Show the splash earlier, scale its artwork and credits together and credit karilaa-dev
+
 Version 2.0.0.0
 - GitHub update window with release changelog, Update and restart, Close, and Skip this update
 - Background checks for the latest stable release; manual checks also show skipped versions

@@ -1,205 +1,122 @@
 ﻿using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using MiscUtil.Conversion;
-using MiscUtil.IO;
 using Paril.Cryptography;
 
 namespace Paril.Imaging
 {
 	public class PNGMetadata
 	{
-		/*public static Dictionary<string, string> ReadMetadata(string fileName)
+		private const uint TextChunk = 0x74455874; // tEXt
+		private const uint InternationalTextChunk = 0x69545874; // iTXt
+		private const uint EndChunk = 0x49454E44;  // IEND
+
+		// Older versions put their text chunks after IEND. Read those too.
+		private static IEnumerable<(long Offset, int Size, uint Type, string Key, string Value)> ReadChunks(Stream input)
 		{
-			Dictionary<string, string> metadata = new Dictionary<string, string>();
+			byte[] header = new byte[8];
+			input.ReadExactly(header);
+			if (!header.AsSpan().SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }))
+				throw new InvalidDataException("Invalid PNG signature.");
 
-			using (var fs = new FileStream(fileName, FileMode.Open, FileAccess.Read))
-			using (var br = new EndianBinaryReader(EndianBitConverter.Big, fs))
+			bool foundEnd = false;
+			while (input.Position + 12 <= input.Length)
 			{
-				br.ReadBytes(8);
-
-				while (true)
+				long start = input.Position;
+				input.ReadExactly(header);
+				int length = BinaryPrimitives.ReadInt32BigEndian(header);
+				uint type = BinaryPrimitives.ReadUInt32BigEndian(header.AsSpan(4));
+				if (length < 0 || length > input.Length - start - 12) break;
+				string key = null, value = null;
+				if (type is TextChunk or InternationalTextChunk)
 				{
-					uint len = br.ReadUInt32();
-					string type = Encoding.ASCII.GetString(br.ReadBytes(4));
-
-					if (type == "tEXt")
+					byte[] bytes = new byte[length];
+					input.ReadExactly(bytes);
+					int separator = Array.IndexOf(bytes, (byte)0);
+					if (separator > 0)
 					{
-						string keyword = "";
-						uint count = 0;
-						char c = '\0';
-
-						while (true)
+						key = Encoding.Latin1.GetString(bytes, 0, separator);
+						if (type == TextChunk)
+							value = Encoding.Latin1.GetString(bytes.AsSpan(separator + 1));
+						else if (separator + 3 < length && bytes[separator + 1] == 0)
 						{
-							c = (char)br.ReadByte();
-
-							count++;
-
-							if (c == '\0')
-								break;
-
-							keyword += c;
-						};
-
-						string text = Encoding.ASCII.GetString(br.ReadBytes((int)(len - count)));
-						metadata.Add(keyword, text);
+							// An uncompressed iTXt value follows the language tag and translated keyword.
+							int languageEnd = Array.IndexOf(bytes, (byte)0, separator + 3);
+							int translatedEnd = languageEnd < 0 ? -1 : Array.IndexOf(bytes, (byte)0, languageEnd + 1);
+							if (translatedEnd >= 0) value = Encoding.UTF8.GetString(bytes.AsSpan(translatedEnd + 1));
+						}
 					}
-					else if (type == "IEND")
-						break;
-					else
-						br.ReadBytes((int)len);
-
-					br.ReadInt32();
 				}
+				input.Position = start + length + 12;
+				foundEnd |= type == EndChunk;
+				yield return (start, checked(length + 12), type, key, value);
 			}
-
-			return metadata;
+			if (!foundEnd) throw new InvalidDataException("Incomplete PNG.");
 		}
-
-		public static void WriteMetadata(string fileName, Dictionary<string, string> data)
-		{
-			long iendPos = 0;
-
-			// FIXME: I hate this.
-			byte[] dataBefore, dataAfter;
-
-			// find where the IEND chunk starts
-			using (var fs = new FileStream(fileName, FileMode.Open, FileAccess.Read))
-			using (var br = new EndianBinaryReader(EndianBitConverter.Big, fs))
-			{
-				br.ReadBytes(8);
-
-				while (true)
-				{
-					iendPos = br.BaseStream.Position;
-					uint len = br.ReadUInt32();
-					string type = Encoding.ASCII.GetString(br.ReadBytes(4));
-
-					if (type == "IEND")
-						break;
-					else
-						br.ReadBytes((int)len);
-
-					br.ReadInt32();
-				}
-
-				br.BaseStream.Position = 0;
-
-				// FIXME: BAH REMOVE
-				dataBefore = br.ReadBytes((int)iendPos);
-				dataAfter = br.ReadBytes((int)(fs.Length - iendPos));
-			}
-
-			using (var fs = new FileStream(fileName, FileMode.Truncate, FileAccess.Write))
-			using (var bw = new EndianBinaryWriter(EndianBitConverter.Big, fs))
-			{
-				bw.Write(dataBefore);
-
-				foreach (var text in data)
-				{
-					int chunkLen = text.Key.Length + 1 + text.Value.Length;
-
-					bw.Write((uint)chunkLen);
-					bw.Write(Encoding.ASCII.GetBytes("tEXt"), 0, 4);
-
-					List<byte> _toCrc = new List<byte>();
-					_toCrc.AddRange(Encoding.ASCII.GetBytes(text.Key));
-					_toCrc.Add(0);
-					_toCrc.AddRange(Encoding.ASCII.GetBytes(text.Value));
-
-					bw.Write(Encoding.ASCII.GetBytes(text.Key));
-					bw.Write((byte)0);
-					bw.Write(Encoding.ASCII.GetBytes(text.Value));
-
-					Crc32 crc = new Crc32();
-					crc.Initialize();
-					crc.ComputeHash(_toCrc.ToArray());
-
-					bw.Write(crc.CrcValue);
-				}
-
-				bw.Write(dataAfter);
-			}
-		}*/
 
 		public static Dictionary<string, string> ReadMetadata(string fileName)
 		{
+			var metadata = new Dictionary<string, string>();
 			try
 			{
-				var metadata = new Dictionary<string, string>();
-				
-				using (var br = new EndianBinaryReader(EndianBitConverter.Big, new FileStream(fileName, FileMode.Open, FileAccess.Read)))
-				{
-					br.ReadBytes(8);
-
-					while (br.BaseStream.Position != br.BaseStream.Length)
-					{
-						uint len = br.ReadUInt32();
-						string type = Encoding.ASCII.GetString(br.ReadBytes(4));
-
-						if (type == "tEXt")
-						{
-							List<char> keyword = new List<char>();
-							uint count = 0;
-							char c = '\0';
-
-							while (true)
-							{
-								c = (char)br.ReadByte();
-
-								count++;
-
-								if (c == '\0')
-									break;
-
-								keyword.Add(c);
-							}
-
-							string text = Encoding.ASCII.GetString(br.ReadBytes((int)(len - count)));
-							metadata.Add(new string(keyword.ToArray()), text);
-						}
-						else
-							br.ReadBytes((int)len);
-
-						br.ReadInt32();
-					}
-				}
-
-				return metadata;
+				using var input = File.OpenRead(fileName);
+				foreach (var chunk in ReadChunks(input))
+					if (chunk.Value != null) metadata[chunk.Key] = chunk.Value;
 			}
-			catch (Exception)
+			catch (IOException) { }
+			catch (InvalidDataException) { }
+			return metadata;
+		}
+
+		internal static void WriteMetadata(byte[] png, Stream output, Dictionary<string, string> data)
+		{
+			using var input = new MemoryStream(png, false);
+			int copied = 0;
+			foreach (var chunk in ReadChunks(input))
 			{
-				return new Dictionary<string, string>();
+				bool replace = chunk.Key != null && data.ContainsKey(chunk.Key);
+				if (!replace && chunk.Type != EndChunk) continue;
+				int offset = checked((int)chunk.Offset);
+				output.Write(png, copied, offset - copied);
+				if (chunk.Type == EndChunk)
+					foreach (var entry in data) WriteText(output, entry.Key, entry.Value);
+				copied = replace ? offset + chunk.Size : offset;
 			}
+			output.Write(png, copied, png.Length - copied);
+		}
+
+		private static void WriteText(Stream output, string key, string value)
+		{
+			// Keep legacy-readable text for Latin-1 model paths. Custom models can use Unicode.
+			byte[] chunk = value.AsSpan().ContainsAnyExceptInRange('\0', '\u00ff')
+				? Encoding.UTF8.GetBytes("iTXt" + key + "\0\0\0\0\0" + value)
+				: Encoding.Latin1.GetBytes("tEXt" + key + "\0" + value);
+			Span<byte> number = stackalloc byte[4];
+			BinaryPrimitives.WriteInt32BigEndian(number, chunk.Length - 4);
+			output.Write(number);
+			output.Write(chunk);
+			using var crc = new Crc32();
+			output.Write(crc.ComputeHash(chunk));
 		}
 
 		public static void WriteMetadata(string fileName, Dictionary<string, string> data)
 		{
-			using (var bw = new EndianBinaryWriter(EndianBitConverter.Big, new FileStream(fileName, FileMode.Append, FileAccess.Write)))
+			string temporary = fileName + "." + Guid.NewGuid().ToString("N") + ".tmp";
+			try
 			{
-				foreach (var text in data)
-				{
-					int chunkLen = text.Key.Length + 1 + text.Value.Length;
-
-					bw.Write((uint)chunkLen);
-					bw.Write(Encoding.ASCII.GetBytes("tEXt"), 0, 4);
-
-					var _toCrc = new List<byte>();
-					_toCrc.AddRange(Encoding.ASCII.GetBytes(text.Key));
-					_toCrc.Add(0);
-					_toCrc.AddRange(Encoding.ASCII.GetBytes(text.Value));
-
-					bw.Write(Encoding.ASCII.GetBytes(text.Key));
-					bw.Write((byte)0);
-					bw.Write(Encoding.ASCII.GetBytes(text.Value));
-
-					var crc = new Crc32();
-					crc.Initialize();
-					crc.ComputeHash(_toCrc.ToArray());
-
-					bw.Write(crc.CrcValue);
-				}
+				// Deny concurrent writers while copying the original image and its unrelated chunks.
+				using var source = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+				byte[] png = new byte[checked((int)source.Length)];
+				source.ReadExactly(png);
+				using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+					WriteMetadata(png, output, data);
+				File.Replace(temporary, fileName, null);
+			}
+			finally
+			{
+				if (File.Exists(temporary)) File.Delete(temporary);
 			}
 		}
 	}

@@ -518,6 +518,7 @@ namespace MCSkin3D
         {
             if (document != null && PreviewItem.Role(document) != target) throw new ArgumentException("Incompatible preview document.", nameof(document));
             FinishStroke();
+            if (document?.CheckPlayerModel() == true) ShowModelNotice(document);
             if (_lastSkin != null) _lastSkin.CommitChanges(GlobalDirtiness.CurrentSkin, false);
             var previous = target == EditingTarget.Skin ? _workspaceSkin : _workspaceCape;
             if (target == EditingTarget.Skin) _workspaceSkin = document;
@@ -708,6 +709,7 @@ namespace MCSkin3D
                 {
                     _lastSkin.CommitChanges(GlobalDirtiness.CurrentSkin, false);
                 }
+                if (document?.CheckPlayerModel() == true) ShowModelNotice(document);
                 if (CombinedEnabled && assignWorkspace && document != null)
                 {
                     var role = PreviewItem.Role(document);

@@ -11,17 +11,17 @@ namespace MCSkin3D.Forms
 	public partial class Splash : Form
 	{
 		private Thread _loaderThread;
-		private System.Windows.Forms.Timer _loadingTimer;
 		private bool _finishedLoading;
 		private volatile bool _closing;
 
 		public Splash()
 		{
 			InitializeComponent();
+			label4.Text = Program.Name + " v" + Program.Version;
 			Disposed += (sender, e) => _closing = true;
 		}
 
-		public static string LoadingValue = "(nothing?)";
+		public static string LoadingValue = "Starting...";
 
 		public void SetLoadingString(string s)
 		{
@@ -37,10 +37,6 @@ namespace MCSkin3D.Forms
 			}
 
 			label1.Text = s;
-		}
-
-		private void label1_Click(object sender, EventArgs e)
-		{
 		}
 
 		Language LoadLanguages()
@@ -183,41 +179,22 @@ namespace MCSkin3D.Forms
 			}
 		}
 
-		public static void BeginLoaderThread()
+		internal void BeginLoaderThread()
 		{
-			var splash = Program.Context.SplashForm;
-			if (splash._closing || splash._loaderThread != null)
+			if (_closing || _loaderThread != null)
 				return;
 
-			splash._loaderThread = new Thread(splash.PerformLoading)
+			_loaderThread = new Thread(PerformLoading)
 			{
 				IsBackground = true,
 				Name = "MCSkin3D startup loader"
 			};
-			splash._loaderThread.Start();
-		}
-
-		private void Splash_Load(object sender, EventArgs e)
-		{
-			label4.Text = Program.Name + " v" + Program.Version.ToString();
-			SetLoadingString("Doing nothing yet...");
-
-			components ??= new System.ComponentModel.Container();
-			_loadingTimer = new System.Windows.Forms.Timer(components) { Interval = 100 };
-			_loadingTimer.Tick += (s, ev) =>
-			{
-				_loadingTimer.Stop();
-				_loadingTimer.Dispose();
-				_loadingTimer = null;
-				BeginLoaderThread();
-			};
-			_loadingTimer.Start();
+			_loaderThread.Start();
 		}
 
 		protected override void OnFormClosed(FormClosedEventArgs e)
 		{
 			_closing = true;
-			_loadingTimer?.Stop();
 			base.OnFormClosed(e);
 			if (!_finishedLoading)
 				Application.ExitThread();

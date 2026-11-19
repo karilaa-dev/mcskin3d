@@ -1,8 +1,8 @@
-# MCSkin3D 2.0.0.0
+# MCSkin3D 2.1.0.0
 
 A Windows editor for painting Minecraft skins in 3D and 2D, migrated to .NET 10 and OpenTK 4.
 
-Version 2.0.0.0 adds an integrated GitHub updater, raised skin layers, first-person painting, Minecraft lighting controls and faster preview rendering. See [all changes since 1.7.2](docs/releases/v2.0.0.0.md).
+Version 2.1.0.0 adds one-time Alex and Steve model detection, a clickable orientation cube and compact layer controls. It also fixes folder arrow clicks in the skin explorer and improves the startup splash. [Release notes](docs/releases/v2.1.0.0.md)
 
 ## Build and run
 

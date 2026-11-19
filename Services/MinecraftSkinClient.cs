@@ -9,6 +9,24 @@ using System.Threading.Tasks;
 
 namespace MCSkin3D.Services
 {
+	internal sealed record DownloadedSkin(byte[] Png, string ModelPath)
+	{
+		internal void SaveNew(string path)
+		{
+			string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+			try
+			{
+				using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+					Paril.Imaging.PNGMetadata.WriteMetadata(Png, output, Skin.ModelMetadata(ModelPath));
+				File.Move(temporary, path);
+			}
+			finally
+			{
+				if (File.Exists(temporary)) File.Delete(temporary);
+			}
+		}
+	}
+
 	public sealed class MinecraftSkinClient
 	{
 		private const int MaximumResponseBytes = 1024 * 1024;
@@ -29,7 +47,10 @@ namespace MCSkin3D.Services
 			_client = client ?? throw new ArgumentNullException(nameof(client));
 		}
 
-		public async Task<byte[]> DownloadSkinAsync(string name)
+		public async Task<byte[]> DownloadSkinAsync(string name) =>
+			(await DownloadProfileSkinAsync(name).ConfigureAwait(false)).Png;
+
+		internal async Task<DownloadedSkin> DownloadProfileSkinAsync(string name)
 		{
 			ValidateName(name);
 			using var timeout = new CancellationTokenSource(RequestTimeout);
@@ -39,8 +60,11 @@ namespace MCSkin3D.Services
 				if (!textures.RootElement.GetProperty("textures").TryGetProperty("SKIN", out JsonElement skin))
 					throw new InvalidDataException("This Minecraft profile does not have a custom skin.");
 				byte[] bytes = await GetBytesAsync(GetTextureUri(RequiredString(skin, "url")), timeout.Token).ConfigureAwait(false);
-				ValidateSkin(bytes);
-				return bytes;
+				int height = ValidateSkin(bytes);
+				bool slim = skin.TryGetProperty("metadata", out var metadata) && metadata.ValueKind == JsonValueKind.Object &&
+					metadata.TryGetProperty("model", out var model) && model.ValueKind == JsonValueKind.String &&
+					string.Equals(model.GetString(), "slim", StringComparison.OrdinalIgnoreCase);
+				return new DownloadedSkin(bytes, PlayerSkinModel.PathFor(slim, height == 32));
 			}
 			catch (JsonException exception) { throw new InvalidDataException("Minecraft returned invalid skin information.", exception); }
 			catch (FormatException exception) { throw new InvalidDataException("Minecraft returned invalid encoded skin information.", exception); }
@@ -142,7 +166,7 @@ namespace MCSkin3D.Services
 			return output.ToArray();
 		}
 
-		private static void ValidateSkin(byte[] bytes)
+		private static int ValidateSkin(byte[] bytes)
 		{
 			if (bytes.Length < 33 || !bytes.AsSpan(0, PngSignature.Length).SequenceEqual(PngSignature))
 				throw new InvalidDataException("The downloaded skin is not a PNG image.");
@@ -156,6 +180,7 @@ namespace MCSkin3D.Services
 				using var image = Image.FromStream(stream, false, true);
 				if (image.Width != width || image.Height != height)
 					throw new InvalidDataException("The downloaded skin has invalid image dimensions.");
+				return image.Height;
 			}
 			catch (ArgumentException exception)
 			{

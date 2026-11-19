@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MCSkin3D.Services;
+using Paril.Imaging;
 
 internal static class SkinDownloadChecks
 {
@@ -32,6 +33,26 @@ internal static class SkinDownloadChecks
             check(handler.Requests[1].Host == "sessionserver.mojang.com" && handler.Requests[1].AbsolutePath.Contains(PlayerId), "Texture request must use resolved profile ID");
             check(handler.Requests[2].Host == "textures.minecraft.net", "Image request must target Minecraft texture host");
             check(handler.Requests.All(uri => uri.Scheme == "https"), "All requests must use HTTPS, including upgraded legacy texture URL");
+        }
+
+        foreach (int height in new[] { 32, 64 })
+        foreach (string variant in new[] { null, "default", "slim" })
+        {
+            byte[] png = MakePng(64, height);
+            using var handler = new FixtureHandler(Profile(PlayerId), Textures(TextureUrl, variant), png);
+            using var http = new HttpClient(handler);
+            var skin = new MinecraftSkinClient(http).DownloadProfileSkinAsync("Player").GetAwaiter().GetResult();
+            string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".png");
+            try
+            {
+                skin.SaveNew(path);
+                var metadata = PNGMetadata.ReadMetadata(path);
+                string expected = (variant == "slim" ? "Players/Alex" : "Players/Steve") + (height == 32 ? " (Minimal)" : "");
+                check(metadata["Model"] == expected && metadata["ModelChecked"] == "1", "Nickname import stores the profile model on first write");
+                using var image = new Bitmap(path);
+                check(image.GetPixel(0, 0).A == 51, "Adding the model preserves the downloaded texture");
+            }
+            finally { File.Delete(path); }
         }
 
         foreach (string name in new[] { "", "../player", "name with spaces", "abcdefghijklmnopqrstuvwxyz" })
@@ -83,9 +104,10 @@ internal static class SkinDownloadChecks
     }
 
     private static string Profile(string id) => JsonSerializer.Serialize(new { id });
-    private static string Textures(string url)
+    private static string Textures(string url, string model = null)
     {
-        string payload = JsonSerializer.Serialize(new { textures = new { SKIN = new { url } } });
+        object skin = model == null ? new { url } : new { url, metadata = new { model } };
+        string payload = JsonSerializer.Serialize(new { textures = new { SKIN = skin } });
         return JsonSerializer.Serialize(new { properties = new[] { new { name = "textures", value = Convert.ToBase64String(Encoding.UTF8.GetBytes(payload)) } } });
     }
 

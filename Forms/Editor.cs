@@ -110,6 +110,9 @@ namespace MCSkin3D
 		private bool _mouseIn3D;
 		private string[] _newSkinDirs;
 		private ModelToolStripMenuItem _oldModel;
+		private readonly ToolStripStatusLabel _modelNotice = new() { Visible = false, BackColor = SystemColors.Info, ForeColor = SystemColors.InfoText };
+		private readonly Timer _modelNoticeTimer;
+
 		private bool _opening = true;
 		private Point _pickPosition = new Point(-1, -1);
 		private TreeNode _rightClickedNode;
@@ -2348,16 +2351,15 @@ namespace MCSkin3D
 			try
 			{
 				treeView1.Enabled = false;
-				byte[] pngData = await new Services.MinecraftSkinClient().DownloadSkinAsync(accountName);
+				var download = await new Services.MinecraftSkinClient().DownloadProfileSkinAsync(accountName);
 				if (IsDisposed)
 					return;
-				while (File.Exists(folderLocation + newSkinName + ".png"))
+				while (File.Exists(Path.Combine(folderLocation, newSkinName + ".png")))
 					newSkinName += " - " + GetLanguageString("C_NEW");
 
-				using (FileStream file = new FileStream(folderLocation + newSkinName + ".png", FileMode.CreateNew))
-					file.Write(pngData, 0, pngData.Length);
-
-				var skin = new Skin(folderLocation + newSkinName + ".png");
+				string path = Path.Combine(folderLocation, newSkinName + ".png");
+				download.SaveNew(path);
+				var skin = new Skin(path);
 				collection.Add(skin);
 				skin.SetImages();
 
@@ -2456,14 +2458,21 @@ namespace MCSkin3D
 			Renderer.Invalidate();
 		}
 
+		private void ShowModelNotice(Skin skin)
+		{
+			_modelNotice.Text = string.Format(LanguageLoader.GetStringWithFallback("M_AUTO_SKIN_MODEL"), skin.Name, skin.Model.Name);
+			_modelNotice.Visible = true;
+			_modelNoticeTimer.Stop();
+			if (Visible) _modelNoticeTimer.Start();
+		}
+
 		public void SetModel(Model Model)
 		{
 			if (_lastSkin == null)
 				return;
 			if (_lastSkin.IsReadOnly && _lastSkin.Model != Model) return;
 
-			if (_oldModel != null &&
-				_oldModel.Model == Model)
+			if (_oldModel?.Model == Model && _lastSkin.Model == Model)
 				return;
 
 			if (_lastSkin.Model != Model)
@@ -2493,9 +2502,8 @@ namespace MCSkin3D
 				else
 					_lastSkin.Model = Model;
 
-				_lastSkin.Dirty = true;
-				SetCanSave(true);
-				CheckUndo();
+				_lastSkin.RememberModel();
+				_modelNotice.Visible = false;
 			}
 
 			if (_oldModel != null)
@@ -4121,9 +4129,7 @@ namespace MCSkin3D
 
 				bmp.SaveSafe(folderLocation + newSkinName + ".png");
 
-				var md = new Dictionary<string, string>();
-				md.Add("Model", specificModel.Path);
-				PNGMetadata.WriteMetadata(folderLocation + newSkinName + ".png", md);
+				PNGMetadata.WriteMetadata(folderLocation + newSkinName + ".png", Skin.ModelMetadata(specificModel.Path));
 			}
 
 			var newSkin = new Skin(folderLocation + newSkinName + ".png");
@@ -4258,6 +4264,10 @@ namespace MCSkin3D
 		{
 			MainForm = this;
 			InitializeComponent();
+			statusStrip1.Items.Insert(0, _modelNotice);
+			_modelNoticeTimer = new Timer(components) { Interval = 5000 };
+			_modelNoticeTimer.Tick += (_, _) => { _modelNotice.Visible = false; _modelNoticeTimer.Stop(); };
+			Shown += (_, _) => { if (_modelNotice.Available) _modelNoticeTimer.Start(); };
 			_partItems = new[] { null, headToolStripMenuItem, helmetToolStripMenuItem, chestToolStripMenuItem, leftArmToolStripMenuItem, rightArmToolStripMenuItem, leftLegToolStripMenuItem, rightLegToolStripMenuItem, chestArmorToolStripMenuItem, leftArmArmorToolStripMenuItem, rightArmArmorToolStripMenuItem, leftLegArmorToolStripMenuItem, rightLegArmorToolStripMenuItem };
 			InitializeWorkspace();
 			moveToToolStripMenuItem = new ToolStripMenuItem(LanguageLoader.GetStringWithFallback("M_MOVE_TO"))
